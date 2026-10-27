@@ -1,0 +1,13 @@
+{
+  "name": "smtp-test",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot index.ts"
+  },
+  "dependencies": {
+    "@types/smtp-server": "^3.5.13",
+    "mailparser": "^3.9.33",
+    "smtp-server": "^3.19.16"
+  }
+}

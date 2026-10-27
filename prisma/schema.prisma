@@ -1,0 +1,624 @@
+// BILLOGRAPH — Schéma de base de données (PostgreSQL / Prisma)
+// Décisions :
+// - Les montants sont stockés en entiers (FCFA n'a pas de décimales) → pas d'erreurs d'arrondi.
+// - Seules les tables utiles au MVP sont créées (voir README § Périmètre).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  email                   String                   @unique
+  passwordHash            String
+  name                    String
+  role                    String                   @default("CLIENT") // CLIENT | VENDEUR | ADMIN
+  status                  String                   @default("ACTIVE") // ACTIVE | SUSPENDED
+  // CONFIRMATION D'EMAIL RÉELLE : la connexion reste bloquée tant que
+  // l'adresse n'a pas été confirmée via le lien envoyé à l'inscription.
+  // Les comptes propriétaires créés par le script d'amorçage sont pré-confirmés.
+  emailVerified           Boolean                  @default(false)
+  emailVerifiedAt         DateTime?
+  // PROFIL UTILISATEUR — photo de profil (clé servie via /api/images, stockage
+  // privé) et informations de contact complémentaires, modifiables par
+  // l'utilisateur depuis « Mon profil » (#/profil) pour tous les rôles.
+  avatarUrl               String?
+  phone                   String?
+  // PROFIL PUBLIC VENDEUR — personnalisable librement par l'utilisateur depuis
+  // « Mon profil » et visible sur sa page publique (#/membre/{id}).
+  headline                String? // titre public, ex : « Auteure & formatrice »
+  bio                     String? // présentation libre (2 000 caractères max)
+  city                    String? // ville / pays affichés publiquement
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  sessions                Session[]
+  stores                  Store[]
+  auditLogs               AuditLog[]
+  adminChallenges         AdminChallenge[]
+  reviews                 Review[]
+  notifications           Notification[]
+  processedWithdrawals    Withdrawal[]             @relation("WithdrawalProcessor")
+  emailVerificationTokens EmailVerificationToken[]
+  emailVerificationCodes  EmailVerificationCode[]
+  aiConversations         AiConversation[]
+  // OFFICE (Module « Magnifier son appel ») — un compte CLIENT ou VENDEUR peut
+  // recevoir un office (poste d'officier) SANS que son rôle de compte ne change :
+  // l'espace vendeur reste actif et l'espace professionnel s'ajoute.
+  officeRole              String? // clé de l'office (ex: "GREFFIER") — null = pas d'office
+  officeStatus            String? // ACTIVE | SUSPENDED (null = pas d'office)
+  officeActivatedAt       DateTime?
+  // Adjoint rattaché à un officier : l'adjoint reçoit des tâches de son
+  // officier mais N'HÉRITE PAS des permissions de l'officier.
+  supervisorId            String?
+  supervisor              User?                    @relation("OfficeSupervision", fields: [supervisorId], references: [id], onDelete: SetNull)
+  supervisees             User[]                   @relation("OfficeSupervision")
+  tasksAsAssignee         OfficeTask[]             @relation("OfficeTaskAssignee")
+  tasksAsOfficer          OfficeTask[]             @relation("OfficeTaskOfficer")
+  tasksAsAuthor           OfficeTask[]             @relation("OfficeTaskAuthor")
+  taskComments            OfficeTaskComment[]      @relation("OfficeTaskCommentAuthor")
+  objectives              OfficeObjective[]        @relation("OfficeObjectiveOfficer")
+  objectivesAuthored      OfficeObjective[]        @relation("OfficeObjectiveAuthor")
+  reports                 OfficeReport[]           @relation("OfficeReportOfficer")
+  helpRequests            OfficeHelpRequest[]      @relation("OfficeHelpRequester")
+  helpResponses           OfficeHelpRequest[]      @relation("OfficeHelpResponder")
+  calendarEvents          OfficeCalendarEvent[]    @relation("OfficeCalendarOwner")
+  trainingPublished       OfficeTrainingResource[] @relation("OfficeTrainingPublisher")
+  officeActivities        OfficeActivity[]         @relation("OfficeActivityUser")
+  // CORBEILLE D'ADMINISTRATION — auteur de chaque mise à la corbeille (preuve).
+  trashedProducts         Product[]                @relation("ProductDeletedBy")
+  trashedReviews          Review[]                 @relation("ReviewDeletedBy")
+  trashedAnnouncements    Announcement[]           @relation("AnnouncementDeletedBy")
+  trashedTrainings        OfficeTrainingResource[] @relation("TrainingDeletedBy")
+  trashedTasks            OfficeTask[]             @relation("TaskDeletedBy")
+  trashedCalendars        OfficeCalendarEvent[]    @relation("CalendarDeletedBy")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique // sha256 du token contenu dans le cookie httpOnly
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Store {
+  id          String       @id @default(cuid())
+  ownerId     String
+  name        String
+  slug        String       @unique // identifiant public unique, ex: "librairie-noun"
+  description String?
+  color       String       @default("#0B7A6B") // couleur d'accent de la boutique
+  phone       String?
+  status      String       @default("ACTIVE") // ACTIVE | SUSPENDED
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  owner       User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  products    Product[]
+  orders      Order[]
+  withdrawals Withdrawal[]
+
+  @@index([ownerId])
+}
+
+// RETRAITS VENDEUR — demande de versement du solde disponible. Le paiement
+// réel du retrait est effectué par la plateforme (Mobile Money / virement) ;
+// l'admin consigne la référence du transfert réel avant de marquer PAYÉ.
+model Withdrawal {
+  id              String    @id @default(cuid())
+  storeId         String
+  amountXOF       Int
+  method          String    @default("MOBILE_MONEY") // MOBILE_MONEY | BANK_TRANSFER
+  destination     String // numéro Mobile Money ou coordonnées bancaires fournies par le vendeur
+  status          String    @default("PENDING") // PENDING | APPROVED | PAID | REJECTED
+  providerRef     String? // référence du transfert réel (saisie par l'admin)
+  adminNote       String?
+  requestedAt     DateTime  @default(now())
+  processedAt     DateTime?
+  processedBy     String?
+  store           Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  processedByUser User?     @relation("WithdrawalProcessor", fields: [processedBy], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([status])
+}
+
+// NOTIFICATIONS IN-APP — ventes, paiements, décisions de retrait, demandes de
+// retrait (admin). Lues via la cloche du header (polling léger).
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // SALE | PAYMENT | WITHDRAWAL | WITHDRAWAL_REQUEST | SYSTEM
+  title     String
+  body      String
+  link      String? // route hash interne, ex: "#/dashboard/commande/BLG-XXXXXX"
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  storeId        String
+  title          String
+  slug           String          @unique // identifiant public du produit (page de vente)
+  description    String?
+  type           String          @default("DIGITAL") // DIGITAL | PHYSICAL
+  category       String          @default("autre")
+  priceXOF       Int             @default(0)
+  status         String          @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  imageUrl       String?
+  fileKey        String? // clé du fichier numérique dans le stockage privé (jamais exposée publiquement)
+  fileName       String?
+  fileSize       Int?
+  stock          Int? // produits physiques uniquement (null = illimité/non applicable)
+  // CORBEILLE D'ADMINISTRATION — toute suppression passe par une mise à la
+  // corbeille (deletedAt) : récupérable et prouvable. Seule la purge définitive
+  // par le propriétaire supprime réellement la ligne (audité).
+  deletedAt      DateTime?
+  deletedById    String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderItems     OrderItem[]
+  downloadTokens DownloadToken[]
+  deletedByUser  User?           @relation("ProductDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
+  @@index([storeId])
+  @@index([status])
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  phone     String?
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Order {
+  id             String          @id @default(cuid())
+  reference      String          @unique // référence publique, ex: BLG-XXXXXX
+  storeId        String
+  customerId     String
+  status         String          @default("PENDING") // PENDING | PAID | FAILED | CANCELLED | REFUNDED | DELIVERED
+  totalXOF       Int
+  commissionXOF  Int             @default(0) // commission plateforme prélevée (configurable côté admin)
+  paymentMethod  String          @default("FEDAPAY") // FEDAPAY | FREE
+  createdAt      DateTime        @default(now())
+  paidAt         DateTime?
+  updatedAt      DateTime        @updatedAt
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customer       Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items          OrderItem[]
+  payment        Payment?
+  downloadTokens DownloadToken[]
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  productId     String?
+  titleSnapshot String // titre figé au moment de la commande
+  unitPriceXOF  Int
+  quantity      Int      @default(1)
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+}
+
+model Payment {
+  id          String         @id @default(cuid())
+  orderId     String         @unique
+  provider    String         @default("FEDAPAY") // FEDAPAY | FREE
+  providerRef String?
+  status      String         @default("INITIATED") // INITIATED | PENDING | SUCCESS | FAILED
+  amountXOF   Int
+  createdAt   DateTime       @default(now())
+  confirmedAt DateTime?
+  order       Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  events      PaymentEvent[]
+
+  @@index([status])
+}
+
+model PaymentEvent {
+  id             String   @id @default(cuid())
+  paymentId      String
+  type           String // INITIATED | WEBHOOK_RECEIVED | CONFIRMED | FAILED | DUPLICATE_IGNORED...
+  payload        String // JSON sérialisé (sans données sensibles)
+  signatureValid Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  payment        Payment  @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+}
+
+model DownloadToken {
+  id            String   @id @default(cuid())
+  token         String   @unique // token opaque remis au client après paiement confirmé
+  orderId       String
+  productId     String
+  expiresAt     DateTime
+  maxDownloads  Int      @default(5)
+  downloadCount Int      @default(0)
+  createdAt     DateTime @default(now())
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+}
+
+model PlatformSettings {
+  id                 String   @id @default("main")
+  commissionPercent  Int      @default(10) // commission plateforme TOTALE, frais de paiement inclus (configurable côté admin)
+  siteName           String   @default("BILLOGRAPH")
+  // CONTENU DU SITE — modifiable depuis Paramètres (admin), synchronisé
+  // automatiquement partout (null = valeur par défaut du code).
+  siteTagline        String? // badge au-dessus du titre principal
+  heroTitle          String? // titre principal de l'accueil
+  heroSubtitle       String? // paragraphe sous le titre
+  featuresTitle      String? // titre section fonctionnalités
+  featuresSubtitle   String?
+  audienceTitle      String? // titre section « Pour qui ? »
+  audienceSubtitle   String?
+  reviewsTitle       String? // titre section avis
+  reviewsSubtitle    String?
+  ctaTitle           String? // bloc CTA final
+  ctaText            String?
+  contactEmail       String? // email de contact affiché (pied de page)
+  contactPhone       String? // téléphone affiché (pied de page)
+  whatsappNumber     String? // numéro WhatsApp affiché (format international)
+  socialFacebook     String? // URL complète ou null pour masquer
+  socialInstagram    String?
+  socialTiktok       String?
+  socialYoutube      String?
+  socialTwitter      String?
+  footerText         String? // description de la marque dans le pied de page
+  // PRÉSENTATION DE L'AUTEUR DU SITE — affichée sur la page d'accueil et dans
+  // le pied de page. Modifiable depuis Paramètres (admin) ; null = valeur
+  // par défaut du code (src/lib/site-content.ts).
+  authorName         String? // nom de l'auteur (ex : HOUEDJISSI Judes B.)
+  authorRole         String? // rôle affiché (ex : Fondateur de BILLOGRAPH)
+  authorBio          String? // brève description de l'auteur
+  // Modération des avis : true = publication immédiate sans validation admin.
+  reviewsAutoPublish Boolean  @default(false)
+  // Configuration FedaPay sérialisée (JSON) :
+  // { "fedapaySecretKey": string, "fedapayWebhookSecret": string, "fedapayEnvironment": "sandbox"|"live" }
+  // Secrets jamais journalisés ni audités — uniquement masqués côté API admin.
+  paymentConfig      String?
+  // Configuration SMTP réelle pour l'envoi des emails (sérialisée JSON) :
+  // { "host": string, "port": number, "secure": boolean, "user": string,
+  //   "passEncrypted": string (AES-256-GCM), "fromName": string, "fromEmail": string }
+  // Le mot de passe n'est JAMAIS renvoyé par l'API (masqué).
+  smtpConfig         String?
+  // URL publique du site (ex : https://billograph.com) — utilisée pour les
+  // liens contenus dans les emails (confirmation d'email). Null = origine de la requête.
+  siteUrl            String?
+  updatedAt          DateTime @updatedAt
+}
+
+// AVIS DE LA COMMUNAUTÉ — déposés par les visiteurs/utilisateurs depuis la
+// page d'accueil, publiés après modération admin (sauf si reviewsAutoPublish).
+model Review {
+  id            String    @id @default(cuid())
+  userId        String? // lié au compte si l'auteur était connecté
+  authorName    String
+  authorRole    String? // ex : « Auteure », « Formateur »
+  authorCity    String? // ex : « Cotonou, Bénin »
+  rating        Int // 1 à 5
+  content       String // 10 à 600 caractères
+  status        String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  moderatedAt   DateTime?
+  deletedAt     DateTime? // corbeille d'administration (restaurable)
+  deletedById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deletedByUser User?     @relation("ReviewDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+}
+
+// BARRE D'ANNONCE — message ponctuel affiché en haut du site, rédigé par
+// l'administrateur. Une seule annonce active à la fois : la publication d'une
+// nouvelle annonce désactive automatiquement la précédente (voir API admin).
+model Announcement {
+  id            String    @id @default(cuid())
+  message       String // 3 à 300 caractères
+  link          String? // lien optionnel (route hash interne « #/… » ou URL https)
+  linkLabel     String? // libellé du lien (ex : « En savoir plus »)
+  active        Boolean   @default(false)
+  deletedAt     DateTime? // corbeille d'administration (restaurable)
+  deletedById   String?
+  deletedByUser User?     @relation("AnnouncementDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([active])
+}
+
+// CONFIRMATION D'EMAIL — jeton opaque remis par email (lien #/verifier-email/…).
+// La base ne stocke que son sha256 ; TTL 24 h ; un seul jeton actif par compte.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique // sha256 du jeton envoyé par email (jamais le jeton)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// CONFIRMATION D'EMAIL PAR CODE — alternative et complément au lien : l'email
+// contient un code à 6 chiffres que l'utilisateur saisit dans l'application.
+// À succès, le compte est confirmé ET la session est ouverte automatiquement
+// (redirection directe vers le tableau de bord). Sécurité : la base ne stocke
+// que le sha256 du code ; TTL 15 min ; MAX 5 tentatives puis invalidation ;
+// un seul code actif par compte (un renvoi supprime les précédents).
+model EmailVerificationCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String    @unique // sha256 du code à 6 chiffres (jamais le code)
+  attempts  Int       @default(0) // tentatives erronées cumulées (max 5)
+  expiresAt DateTime // 15 minutes après création
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Vérification admin en deux codes secrets (après identifiants propriétaire).
+// Le serveur remet un token opaque au client ; la base ne stocke que son sha256.
+// Durée de vie courte + compteur de tentatives : anti brute-force des codes.
+model AdminChallenge {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique // sha256 du token remis au client (jamais le token)
+  userId    String
+  step      Int      @default(1) // 1 = premier code secret, 2 = second code
+  attempts  Int      @default(0) // tentatives échouées cumulées (max 5 puis invalidation)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// RECHMIAL IA — assistante d'analyse intégrée au SaaS (réponses générées par un
+// vrai modèle via le SDK serveur). Conversations persistées PAR utilisateur :
+// - l'historique n'est accessible QUE par son propriétaire (contrôle en API) ;
+// - aucun secret, aucune donnée personnelle d'autres comptes n'entre en base ici.
+model AiConversation {
+  id        String      @id @default(cuid())
+  userId    String
+  title     String      @default("Nouvelle conversation") // dérivé du 1er message (tronqué)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  messages  AiMessage[]
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, updatedAt])
+}
+
+model AiMessage {
+  id             String         @id @default(cuid())
+  conversationId String
+  role           String // "user" | "assistant" (jamais d'autre rôle persisté)
+  content        String
+  createdAt      DateTime       @default(now())
+  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String // ex: USER_LOGIN, ORDER_CONFIRMED, PRODUCT_PUBLISHED, ADMIN_SUSPEND_STORE...
+  entity      String
+  entityId    String?
+  metadata    String?
+  createdAt   DateTime @default(now())
+  actor       User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entity])
+  @@index([action])
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// MODULE « MAGNIFIER SON APPEL » — ESPACE DE TRAVAIL DES OFFICIERS
+// Toutes les données sont RÉELLES : tâches, objectifs, rapports, demandes
+// d'aide et historique sont enregistrés en base et servis depuis la base.
+// ═══════════════════════════════════════════════════════════════════
+
+// TÂCHE D'OFFICE — enregistrée réellement. Cycle de vie :
+// TODO → IN_PROGRESS → (ON_HOLD) → AWAITING_VALIDATION → DONE (validée par
+// l'officier pour un adjoint, par le propriétaire pour l'officier).
+model OfficeTask {
+  id            String              @id @default(cuid())
+  title         String
+  description   String?
+  officeRole    String // office auquel la tâche appartient
+  assigneeId    String // exécutant : l'officier lui-même ou l'un de ses adjoints
+  officerId     String // officier titulaire de l'office (valide le travail d'un adjoint)
+  status        String              @default("TODO") // TODO | IN_PROGRESS | ON_HOLD | AWAITING_VALIDATION | DONE
+  priority      String              @default("NORMALE") // BASSE | NORMALE | HAUTE | URGENTE
+  dueDate       DateTime?
+  source        String              @default("OFFICIER") // MODELE (modèle d'office) | OFFICIER | ADJOINT | ADMIN
+  createdById   String
+  submittedAt   DateTime?
+  reviewedAt    DateTime?
+  reviewedById  String?
+  reviewNote    String? // commentaire de validation ou motif de renvoi
+  deletedAt     DateTime? // corbeille d'administration (restaurable)
+  deletedById   String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  assignee      User                @relation("OfficeTaskAssignee", fields: [assigneeId], references: [id], onDelete: Cascade)
+  officer       User                @relation("OfficeTaskOfficer", fields: [officerId], references: [id], onDelete: Cascade)
+  createdBy     User                @relation("OfficeTaskAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+  deletedByUser User?               @relation("TaskDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  comments      OfficeTaskComment[]
+
+  @@index([assigneeId, status])
+  @@index([officerId, status])
+  @@index([officeRole, status])
+}
+
+model OfficeTaskComment {
+  id        String     @id @default(cuid())
+  taskId    String
+  authorId  String
+  body      String
+  createdAt DateTime   @default(now())
+  task      OfficeTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author    User       @relation("OfficeTaskCommentAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt])
+}
+
+// OBJECTIF D'OFFICE — mesurable ; l'avancement déclaré est toujours accompagné
+// d'une justification (réalisations réelles). Les statistiques affichées à
+// côté proviennent des tâches réellement terminées en base.
+model OfficeObjective {
+  id           String    @id @default(cuid())
+  officeRole   String
+  officerId    String
+  title        String
+  description  String?
+  metric       String? // comment la réalisation est mesurée
+  target       Int? // valeur cible
+  achieved     Int       @default(0) // valeur réellement constatée (déclarée avec justification)
+  unit         String?
+  period       String    @default("MENSUEL") // QUOTIDIEN | HEBDO | MENSUEL | PONCTUEL
+  priority     String    @default("NORMALE") // BASSE | NORMALE | HAUTE | URGENTE
+  deadline     DateTime?
+  status       String    @default("EN_COURS") // EN_COURS | ATTEINT | ABANDONNE
+  progressNote String? // justification obligatoire dès qu'un avancement est déclaré
+  createdById  String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  officer      User      @relation("OfficeObjectiveOfficer", fields: [officerId], references: [id], onDelete: Cascade)
+  createdBy    User      @relation("OfficeObjectiveAuthor", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([officerId, status])
+  @@index([officeRole, period])
+}
+
+// RAPPORT D'OFFICE — réalisé par l'officier ; immuable une fois publié
+// (l'historique est conservé intégralement). tasksDoneCount = nombre réel de
+// tâches terminées au moment de la rédaction.
+model OfficeReport {
+  id             String   @id @default(cuid())
+  officerId      String
+  officeRole     String
+  periodLabel    String // ex : « Semaine du 03 au 09 février 2026 »
+  realizations   String
+  difficulties   String?
+  unresolved     String?
+  needs          String?
+  tasksDoneCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  officer        User     @relation("OfficeReportOfficer", fields: [officerId], references: [id], onDelete: Cascade)
+
+  @@index([officerId, createdAt])
+}
+
+// DEMANDE D'AIDE — signaler une difficulté ou demander l'intervention du
+// propriétaire. Les demandes confidentielles ne sont lisibles que par le
+// propriétaire et leur auteur.
+model OfficeHelpRequest {
+  id            String    @id @default(cuid())
+  requesterId   String
+  officeRole    String? // null = signalement d'un compte sans office (module manquant)
+  category      String    @default("AUTRE") // ORGANISATION | RESSOURCES | TECHNIQUE | CONFIDENTIEL | AUTRE
+  subject       String
+  message       String
+  confidential  Boolean   @default(false)
+  status        String    @default("OUVERTE") // OUVERTE | PRISE_EN_CHARGE | RESOLUE
+  response      String?
+  respondedById String?
+  respondedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  requester     User      @relation("OfficeHelpRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  respondedBy   User?     @relation("OfficeHelpResponder", fields: [respondedById], references: [id], onDelete: SetNull)
+
+  @@index([requesterId])
+  @@index([status, createdAt])
+}
+
+// ÉVÉNEMENT DE CALENDRIER D'OFFICE — réunions, activités, échéances, rappels.
+model OfficeCalendarEvent {
+  id            String    @id @default(cuid())
+  ownerId       String
+  officeRole    String
+  title         String
+  description   String?
+  type          String    @default("ACTIVITE") // REUNION | ACTIVITE | ECHEANCE | RAPPEL
+  startsAt      DateTime
+  location      String?
+  deletedAt     DateTime? // corbeille d'administration (restaurable)
+  deletedById   String?
+  createdAt     DateTime  @default(now())
+  owner         User      @relation("OfficeCalendarOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  deletedByUser User?     @relation("CalendarDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
+  @@index([ownerId, startsAt])
+}
+
+// RESSOURCE DE FORMATION D'OFFICE — instructions, procédures, guides et
+// documents autorisés. Actualisée par le propriétaire (admin) uniquement.
+model OfficeTrainingResource {
+  id            String    @id @default(cuid())
+  officeRole    String? // null = ressource commune à tous les offices
+  title         String
+  category      String    @default("PROCEDURE") // INSTRUCTION | PROCEDURE | GUIDE | DOCUMENT
+  body          String?
+  externalUrl   String?
+  active        Boolean   @default(true)
+  publishedById String
+  deletedAt     DateTime? // corbeille d'administration (restaurable)
+  deletedById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  publishedBy   User      @relation("OfficeTrainingPublisher", fields: [publishedById], references: [id], onDelete: Cascade)
+  deletedByUser User?     @relation("TrainingDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+
+  @@index([officeRole, active])
+}
+
+// HISTORIQUE DE TRAVAIL — chaque action professionnelle est tracée pour un
+// suivi transparent (tâches, validations, objectifs, rapports, demandes).
+model OfficeActivity {
+  id         String   @id @default(cuid())
+  userId     String // auteur de l'action
+  officeRole String
+  action     String // TASK_CREATED, TASK_STATUS_CHANGED, TASK_SUBMITTED, TASK_VALIDATED, TASK_RETURNED, OBJECTIVE_CREATED, OBJECTIVE_UPDATED, REPORT_SUBMITTED, HELP_REQUESTED, OFFICE_GRANTED...
+  entityType String
+  entityId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+  user       User     @relation("OfficeActivityUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}

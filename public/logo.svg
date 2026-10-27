@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Logo BILLOGRAPH : monogramme "B" formé par une facture stylisée + tampon de validation -->
+  <rect x="4" y="4" width="56" height="56" rx="14" fill="#0B7A6B"/>
+  <path d="M20 16h20a8 8 0 0 1 8 8v0a8 8 0 0 1-8 8h-4" stroke="#F5E6C4" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M20 16v32" stroke="#F5E6C4" stroke-width="5" stroke-linecap="round"/>
+  <path d="M20 32h18a8 8 0 0 1 8 8v0a8 8 0 0 1-8 8H20" stroke="#F5E6C4" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <circle cx="46" cy="19" r="7" fill="#E8A33D"/>
+  <path d="M43 19l2.2 2.2L49.5 16.8" stroke="#0B7A6B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

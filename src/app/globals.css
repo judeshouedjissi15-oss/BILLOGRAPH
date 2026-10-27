@@ -1,0 +1,454 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  /* Identité BILLOGRAPH : vert profond (confiance, croissance) + accents ambrés */
+  --background: oklch(0.993 0.004 95);
+  --foreground: oklch(0.2 0.015 180);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.015 180);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.015 180);
+  --primary: oklch(0.5 0.098 178);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.965 0.012 110);
+  --secondary-foreground: oklch(0.32 0.04 175);
+  --muted: oklch(0.965 0.008 110);
+  --muted-foreground: oklch(0.52 0.02 175);
+  --accent: oklch(0.955 0.04 95);
+  --accent-foreground: oklch(0.35 0.06 75);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.915 0.01 120);
+  --input: oklch(0.915 0.01 120);
+  --ring: oklch(0.55 0.095 178);
+  --chart-1: oklch(0.55 0.11 178);
+  --chart-2: oklch(0.75 0.15 80);
+  --chart-3: oklch(0.65 0.15 55);
+  --chart-4: oklch(0.6 0.1 150);
+  --chart-5: oklch(0.45 0.08 200);
+  --sidebar: oklch(0.975 0.008 110);
+  --sidebar-foreground: oklch(0.2 0.015 180);
+  --sidebar-primary: oklch(0.5 0.098 178);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.955 0.04 95);
+  --sidebar-accent-foreground: oklch(0.35 0.06 75);
+  --sidebar-border: oklch(0.915 0.01 120);
+  --sidebar-ring: oklch(0.55 0.095 178);
+}
+
+.dark {
+  --background: oklch(0.17 0.015 185);
+  --foreground: oklch(0.97 0.005 110);
+  --card: oklch(0.22 0.02 185);
+  --card-foreground: oklch(0.97 0.005 110);
+  --popover: oklch(0.22 0.02 185);
+  --popover-foreground: oklch(0.97 0.005 110);
+  --primary: oklch(0.78 0.11 175);
+  --primary-foreground: oklch(0.2 0.04 180);
+  --secondary: oklch(0.27 0.02 120);
+  --secondary-foreground: oklch(0.97 0.005 110);
+  --muted: oklch(0.27 0.02 120);
+  --muted-foreground: oklch(0.7 0.02 130);
+  --accent: oklch(0.3 0.04 95);
+  --accent-foreground: oklch(0.93 0.06 90);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.65 0.1 175);
+  --chart-1: oklch(0.7 0.12 175);
+  --chart-2: oklch(0.78 0.15 85);
+  --chart-3: oklch(0.68 0.15 55);
+  --chart-4: oklch(0.62 0.1 150);
+  --chart-5: oklch(0.5 0.08 200);
+  --sidebar: oklch(0.22 0.02 185);
+  --sidebar-foreground: oklch(0.97 0.005 110);
+  --sidebar-primary: oklch(0.78 0.11 175);
+  --sidebar-primary-foreground: oklch(0.2 0.04 180);
+  --sidebar-accent: oklch(0.3 0.04 95);
+  --sidebar-accent-foreground: oklch(0.93 0.06 90);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.65 0.1 175);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ================================================================
+   BILLOGRAPH — Design futuriste (Task ID: 46-design)
+   Utilitaires d'animation premium, 100 % CSS (zéro dépendance JS).
+   Palette : vert profond #0B7A6B (thème), teal, ambre #D97706,
+   prune discret — jamais d'indigo/bleu/sky (règle projet).
+   Performance : animations limitées à transform/opacity (le texte
+   .text-shimmer anime seulement son dégradé), couches isolées,
+   will-change ciblé. Accessibilité : tout se désactive proprement
+   via prefers-reduced-motion.
+   ================================================================ */
+
+/* Angle interpolable : permet au liseré .border-beam de tourner
+   de façon fluide (dégradation élégante si @property manque). */
+@property --futur-beam-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ----------------------------- Keyframes ----------------------------- */
+
+/* Fond dégradé mouvant : dérive lente des masses lumineuses
+   (transform uniquement, aucun repaint de fond). */
+@keyframes aurora {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(5vw, 4vh, 0) scale(1.14) rotate(10deg);
+  }
+  100% {
+    transform: translate3d(-4vw, -3vh, 0) scale(0.94) rotate(-8deg);
+  }
+}
+
+/* Grille technique : défilement d'exactement une cellule,
+   en boucle parfaitement continue. */
+@keyframes grid-pan {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(
+      var(--futur-grid-cell, 44px),
+      var(--futur-grid-cell, 44px),
+      0
+    );
+  }
+}
+
+/* Texte dégradé animé : un balayage lumineux, puis une courte pause. */
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: -200% 50%;
+  }
+}
+
+/* Lévitation douce. */
+@keyframes float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -12px, 0);
+  }
+}
+
+/* Halo pulsant : anneau qui s'évapore + lueur (couleurs du thème). */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 color-mix(in oklab, var(--primary) 38%, transparent),
+      0 0 14px 1px color-mix(in oklab, var(--primary) 16%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 0 0 7px color-mix(in oklab, var(--primary) 0%, transparent),
+      0 0 30px 5px color-mix(in oklab, var(--primary) 32%, transparent);
+  }
+}
+
+/* Liseré lumineux tournant (conic-gradient via --futur-beam-angle). */
+@keyframes border-beam {
+  to {
+    --futur-beam-angle: 360deg;
+  }
+}
+
+/* Entrée en scène : montée + apparition. */
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 24px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/* ---------------------------- Utilitaires ---------------------------- */
+@layer utilities {
+  /* Aurore : deux masses lumineuses (teal du thème + ambre) dérivant
+     lentement derrière le contenu, plus un voile prune discret.
+     Fonctionne en clair comme en sombre (couleurs issues du thème). */
+  .futuristic-aurora {
+    --futur-aurora-opacity: 0.32;
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    background: radial-gradient(
+      55% 45% at 78% 18%,
+      oklch(0.55 0.09 320 / 0.14),
+      transparent 70%
+    );
+  }
+  .futuristic-aurora::before,
+  .futuristic-aurora::after {
+    content: "";
+    position: absolute;
+    width: 55vmax;
+    height: 55vmax;
+    border-radius: 9999px;
+    filter: blur(64px);
+    opacity: var(--futur-aurora-opacity);
+    will-change: transform;
+  }
+  .futuristic-aurora::before {
+    top: -28%;
+    left: -18%;
+    background: radial-gradient(
+      circle at center,
+      color-mix(in oklab, var(--primary) 55%, transparent),
+      transparent 70%
+    );
+    animation: aurora 17s ease-in-out infinite alternate;
+  }
+  .futuristic-aurora::after {
+    right: -15%;
+    bottom: -30%;
+    background: radial-gradient(
+      circle at center,
+      oklch(0.75 0.15 70 / 0.5),
+      transparent 70%
+    );
+    animation: aurora 23s ease-in-out infinite alternate-reverse;
+  }
+  .dark .futuristic-aurora {
+    --futur-aurora-opacity: 0.42;
+  }
+
+  /* Grille technique qui défile, estompée vers les bords par un masque. */
+  .futuristic-grid {
+    --futur-grid-cell: 44px;
+    --futur-grid-line: oklch(0.5 0.098 178 / 0.1);
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    -webkit-mask-image: radial-gradient(
+      ellipse 85% 70% at 50% 38%,
+      black 20%,
+      transparent 75%
+    );
+    mask-image: radial-gradient(
+      ellipse 85% 70% at 50% 38%,
+      black 20%,
+      transparent 75%
+    );
+  }
+  .futuristic-grid::before {
+    content: "";
+    position: absolute;
+    inset: calc(-1 * var(--futur-grid-cell));
+    background-image:
+      linear-gradient(to right, var(--futur-grid-line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--futur-grid-line) 1px, transparent 1px);
+    background-size: var(--futur-grid-cell) var(--futur-grid-cell);
+    animation: grid-pan 30s linear infinite;
+    will-change: transform;
+  }
+  .dark .futuristic-grid {
+    --futur-grid-line: oklch(0.78 0.11 175 / 0.12);
+  }
+
+  /* Titre à reflet : dégradé thème → teal → ambre balayé en continu.
+     Le texte reste lisible si background-clip: text n'est pas supporté. */
+  .text-shimmer {
+    color: var(--foreground);
+  }
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .text-shimmer {
+      --futur-shimmer-teal: oklch(0.72 0.13 175);
+      --futur-shimmer-amber: oklch(0.78 0.15 70);
+      display: inline-block;
+      background-image: linear-gradient(
+        90deg,
+        var(--foreground) 0%,
+        var(--foreground) 35%,
+        var(--futur-shimmer-teal) 46%,
+        var(--futur-shimmer-amber) 54%,
+        var(--foreground) 65%,
+        var(--foreground) 100%
+      );
+      background-size: 200% 100%;
+      background-clip: text;
+      -webkit-background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 7s linear infinite;
+    }
+  }
+
+  /* Lévitation douce (délais négatifs possibles pour désynchroniser). */
+  .animate-float {
+    animation: float 7s ease-in-out infinite;
+    will-change: transform;
+  }
+
+  /* Halo pulsant (badge, pastilles d'étapes, avatar auteur). */
+  .animate-pulse-glow {
+    animation: pulse-glow 3s ease-in-out infinite;
+  }
+
+  /* Carte à halo : légère élévation + lueur teal/ambre au survol. */
+  .glow-card {
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s ease,
+      border-color 0.35s ease;
+  }
+  .glow-card:hover {
+    transform: translateY(-4px);
+    border-color: color-mix(in oklab, var(--primary) 35%, var(--border));
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 14%, transparent),
+      0 14px 34px -12px color-mix(in oklab, var(--primary) 30%, transparent),
+      0 0 44px -10px oklch(0.78 0.15 70 / 0.25);
+  }
+
+  /* Liseré lumineux tournant autour d'un conteneur arrondi. */
+  .border-beam {
+    position: relative;
+    isolation: isolate;
+  }
+  .border-beam::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: conic-gradient(
+      from var(--futur-beam-angle),
+      transparent 0turn,
+      transparent 0.72turn,
+      oklch(0.72 0.13 175 / 0.9) 0.86turn,
+      oklch(0.78 0.15 70) 0.95turn,
+      transparent 1turn
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    animation: border-beam 4.5s linear infinite;
+    pointer-events: none;
+  }
+
+  /* Entrée en scène — délais échelonnés via style inline
+     (animationDelay). « both » : invisible pendant le délai. */
+  .animate-fade-up {
+    animation: fade-up 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* CTA principal : glow teal + halo ambré au survol. */
+  .btn-glow {
+    transition:
+      box-shadow 0.3s ease,
+      transform 0.3s ease;
+  }
+  .btn-glow:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary-foreground) 25%, transparent),
+      0 10px 32px -8px color-mix(in oklab, var(--primary) 65%, transparent),
+      0 0 26px -4px oklch(0.78 0.15 70 / 0.45);
+  }
+}
+
+/* ----------------- Accessibilité : mouvement réduit ----------------- */
+@media (prefers-reduced-motion: reduce) {
+  .futuristic-aurora::before,
+  .futuristic-aurora::after,
+  .futuristic-grid::before,
+  .text-shimmer,
+  .animate-float,
+  .animate-pulse-glow,
+  .border-beam::before,
+  .animate-fade-up,
+  .glow-card,
+  .btn-glow {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* États finaux propres : tout reste visible, rien ne bouge. */
+  .animate-fade-up {
+    opacity: 1;
+    transform: none;
+  }
+  .glow-card:hover,
+  .btn-glow:hover {
+    transform: none;
+  }
+  .text-shimmer {
+    background-image: none;
+    color: var(--foreground);
+    -webkit-text-fill-color: currentColor;
+  }
+}

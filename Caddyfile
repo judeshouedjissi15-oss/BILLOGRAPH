@@ -1,0 +1,58 @@
+:81 {
+        @transform_port_query {
+                query XTransformPort=*
+        }
+
+        handle @transform_port_query {
+                reverse_proxy localhost:{query.XTransformPort} {
+                        header_up Host {host}
+                        header_up X-Forwarded-For {remote_host}
+                        header_up X-Forwarded-Proto {scheme}
+                        header_up X-Real-IP {remote_host}
+                }
+        }
+
+        handle {
+                reverse_proxy localhost:3000 {
+                        header_up Host {host}
+                        header_up X-Forwarded-For {remote_host}
+                        header_up X-Forwarded-Proto {scheme}
+                        header_up X-Real-IP {remote_host}
+                }
+        }
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRODUCTION — HTTPS automatique (Let's Encrypt) dès qu'un domaine réel pointe
+# vers ce serveur. Remplacer « www.billograph.com » par le domaine réel, ouvrir
+# les ports 80/443, puis activer ce bloc (et retirer le bloc :81 ci-dessus).
+# Caddy obtient et renouvelle le certificat automatiquement, redirige tout
+# HTTP→HTTPS et ne laisse plus jamais apparaître l'avertissement
+# « Ce site ne prend pas en charge les connexions sécurisées ».
+#
+# www.billograph.com {
+#         tls contact@billograph.com
+#
+#         @transform_port_query {
+#                 query XTransformPort=*
+#         }
+#
+#         handle @transform_port_query {
+#                 reverse_proxy localhost:{query.XTransformPort} {
+#                         header_up Host {host}
+#                         header_up X-Forwarded-For {remote_host}
+#                         header_up X-Forwarded-Proto {scheme}
+#                         header_up X-Real-IP {remote_host}
+#                 }
+#         }
+#
+#         handle {
+#                 reverse_proxy localhost:3000 {
+#                         header_up Host {host}
+#                         header_up X-Forwarded-For {remote_host}
+#                         header_up X-Forwarded-Proto {scheme}
+#                         header_up X-Real-IP {remote_host}
+#                 }
+#         }
+# }
+# ─────────────────────────────────────────────────────────────────────────────
