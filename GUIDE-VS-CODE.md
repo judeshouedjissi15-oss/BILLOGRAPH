@@ -77,8 +77,13 @@ dans `.env` avec les URL de votre base PostgreSQL, puis appliquez le schéma :
 bun run db:migrate:deploy
 ```
 
-Le stockage local `storage/uploads/` sert au développement. Sur Vercel, utilisez
-un stockage objet durable avant de tester les téléversements.
+Le stockage local `storage/uploads/` sert au développement. Sur Vercel, créez un
+store Blob privé et liez-le aux environnements Preview et Production
+(authentification OIDC automatique). Les fichiers produit et avatar sont
+envoyés directement depuis le navigateur vers Blob avec des autorisations
+signées et limitées ; le jeton Blob ne doit jamais être exposé au navigateur.
+En local, `BLOB_READ_WRITE_TOKEN` est nécessaire pour activer ce même flux
+(récupérez-le avec `vercel env pull`).
 
 ---
 
@@ -105,7 +110,7 @@ un stockage objet durable avant de tester les téléversements.
 - **`.env` contient des secrets** (identifiants propriétaires, clés). Il est déjà
   listé dans `.gitignore` : il ne sera **jamais** envoyé sur GitHub par accident.
   Ne le copiez jamais dans un e-mail, une capture d'écran ou un dépôt public.
-- **La base PostgreSQL et `storage/uploads/` contiennent vos données réelles**.
+- **La base PostgreSQL et le store Blob contiennent vos données réelles**.
   Les fichiers locaux ne sont pas versionnés par Git et ne sont pas persistants sur Vercel.
 - **Moyens de paiement** (FedaPay, MTN MoMo, Moov Money, Celtiis Cash) : les clés
   configurées dans `Admin → Réglages` sont celles de production. Pour tester localement,

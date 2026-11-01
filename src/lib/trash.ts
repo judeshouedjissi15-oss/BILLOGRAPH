@@ -9,8 +9,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { HttpError } from "@/lib/auth";
 import { logAudit } from "@/lib/audit";
-import { unlink } from "fs/promises";
-import { resolveKey } from "@/lib/storage";
+import { deleteFileByKey } from "@/lib/storage";
 
 export const TRASH_ENTITIES = [
   "PRODUCT",
@@ -204,7 +203,7 @@ export async function purgeTrashItem(params: {
     }
     await model.delete({ where: { id: params.id } });
     if (p.fileKey) {
-      await unlink(resolveKey(p.fileKey)).catch(() => {});
+      await deleteFileByKey(p.fileKey).catch(() => {});
     }
   } else {
     await model.delete({ where: { id: params.id } });

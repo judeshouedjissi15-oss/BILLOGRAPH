@@ -7,7 +7,7 @@
 // - Content-Type mappé + nosniff (jamais de type interprétable par le navigateur) ;
 // - cache public long : les clés sont uniques par upload, le contenu est immuable.
 import { NextRequest, NextResponse } from "next/server";
-import { readFileByKey, resolveKey } from "@/lib/storage";
+import { readFileByKey, resolveKey, StorageFileNotFoundError } from "@/lib/storage";
 import { HttpError } from "@/lib/auth";
 import { handleApiError } from "@/lib/api";
 
@@ -39,8 +39,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ key
     let data: Buffer;
     try {
       data = await readFileByKey(relativeKey);
-    } catch {
-      throw new HttpError(404, "Image introuvable");
+    } catch (error) {
+      if (error instanceof StorageFileNotFoundError) {
+        throw new HttpError(404, "Image introuvable");
+      }
+      throw error;
     }
 
     return new NextResponse(new Uint8Array(data), {

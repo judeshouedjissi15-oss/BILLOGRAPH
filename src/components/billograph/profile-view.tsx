@@ -33,6 +33,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "./lib/api-client";
+import { cleanupPrivateBlobs, uploadPrivateBlob } from "./lib/blob-upload";
 import { navigateTo } from "./lib/use-hash-route";
 import { UserAvatar } from "./user-avatar";
 import type { User } from "@/types/api";
@@ -81,13 +82,25 @@ function AvatarCard({ user, refreshUser }: ProfileViewProps) {
       return;
     }
     setBusy(true);
+    let uploadedKey: string | null = null;
     try {
-      const form = new FormData();
-      form.append("avatar", file);
-      await apiFetch("/api/me/avatar", { method: "POST", body: form });
+      const directUpload = await uploadPrivateBlob(file, "avatar");
+      if (directUpload) {
+        uploadedKey = directUpload.key;
+        await apiFetch("/api/me/avatar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(directUpload),
+        });
+      } else {
+        const form = new FormData();
+        form.append("avatar", file);
+        await apiFetch("/api/me/avatar", { method: "POST", body: form });
+      }
       await refreshUser();
       toast({ title: "Photo de profil mise à jour" });
     } catch (err) {
+      if (uploadedKey) await cleanupPrivateBlobs([uploadedKey]);
       toast({
         variant: "destructive",
         title: "Import impossible",

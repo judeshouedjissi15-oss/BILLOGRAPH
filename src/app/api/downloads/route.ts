@@ -10,7 +10,7 @@
 // Puis : incrément du compteur, réponse binaire en pièce jointe.
 import { db } from "@/lib/db";
 import { jsonError, handleApiError } from "@/lib/api";
-import { fileExists, readFileByKey } from "@/lib/storage";
+import { readFileByKey, StorageFileNotFoundError } from "@/lib/storage";
 
 export async function GET(req: Request) {
   try {
@@ -33,11 +33,19 @@ export async function GET(req: Request) {
       return jsonError(410, "Lien expiré ou limite atteinte");
     }
 
-    if (!row.product.fileKey || !(await fileExists(row.product.fileKey))) {
+    if (!row.product.fileKey) {
       return jsonError(404, "Fichier introuvable");
     }
 
-    const buffer = await readFileByKey(row.product.fileKey);
+    let buffer: Buffer;
+    try {
+      buffer = await readFileByKey(row.product.fileKey);
+    } catch (error) {
+      if (error instanceof StorageFileNotFoundError) {
+        return jsonError(404, "Fichier introuvable");
+      }
+      throw error;
+    }
     await db.downloadToken.update({
       where: { id: row.id },
       data: { downloadCount: { increment: 1 } },

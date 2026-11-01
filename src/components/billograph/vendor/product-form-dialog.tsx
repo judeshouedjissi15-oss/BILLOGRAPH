@@ -1,7 +1,7 @@
 "use client";
 
 // Dialogs produit vendeur :
-// - ProductCreateDialog : POST multipart /api/products (fichier + image)
+// - ProductCreateDialog : upload Blob direct, puis POST /api/products (multipart en local)
 // - ProductEditDialog   : PATCH JSON /api/products/:id (pas de re-upload en MVP)
 
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
+import { cleanupPrivateBlobs, uploadPrivateBlob } from "../lib/blob-upload";
 import { formatBytes } from "@/lib/format";
 import { MAX_FILE_SIZE_MB, PRODUCT_MAX_PRICE, CATEGORIES } from "@/lib/constants";
 import type { ProductStatus, ProductType, VendorProduct } from "@/types/api";
@@ -136,19 +137,46 @@ export function ProductCreateDialog({ open, onOpenChange, onCreated }: ProductCr
     }
 
     setSubmitting(true);
+    const uploadedKeys: string[] = [];
     try {
-      const formData = new FormData();
-      formData.set("title", title.trim());
-      formData.set("description", description.trim());
-      formData.set("type", type);
-      formData.set("category", category);
-      formData.set("priceXOF", String(Number(price)));
-      formData.set("status", publishNow ? "PUBLISHED" : "DRAFT");
-      if (type === "PHYSICAL") formData.set("stock", String(Number(stock || "0")));
-      if (file) formData.set("file", file);
-      if (image) formData.set("image", image);
+      const directFile = file ? await uploadPrivateBlob(file, "product-file") : null;
+      if (directFile) uploadedKeys.push(directFile.key);
+      const directImage = image ? await uploadPrivateBlob(image, "product-image") : null;
+      if (directImage) uploadedKeys.push(directImage.key);
+      const directMode = Boolean(directFile || directImage);
 
-      await apiFetch("/api/products", { method: "POST", body: formData });
+      if (directMode) {
+        if ((file && !directFile) || (image && !directImage)) {
+          throw new Error("Impossible de terminer l'envoi direct des fichiers.");
+        }
+        await apiFetch("/api/products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim(),
+            type,
+            category,
+            priceXOF: Number(price),
+            status: publishNow ? "PUBLISHED" : "DRAFT",
+            ...(type === "PHYSICAL" ? { stock: Number(stock || "0") } : {}),
+            file: directFile,
+            image: directImage,
+          }),
+        });
+      } else {
+        const formData = new FormData();
+        formData.set("title", title.trim());
+        formData.set("description", description.trim());
+        formData.set("type", type);
+        formData.set("category", category);
+        formData.set("priceXOF", String(Number(price)));
+        formData.set("status", publishNow ? "PUBLISHED" : "DRAFT");
+        if (type === "PHYSICAL") formData.set("stock", String(Number(stock || "0")));
+        if (file) formData.set("file", file);
+        if (image) formData.set("image", image);
+        await apiFetch("/api/products", { method: "POST", body: formData });
+      }
 
       toast({
         title: "Produit créé",
@@ -160,6 +188,7 @@ export function ProductCreateDialog({ open, onOpenChange, onCreated }: ProductCr
       onCreated();
       onOpenChange(false);
     } catch (error) {
+      await cleanupPrivateBlobs(uploadedKeys);
       toast({
         variant: "destructive",
         title: "Création impossible",
