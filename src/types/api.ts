@@ -354,7 +354,7 @@ export type AdminWithdrawalsResponse = {
 // NOTIFICATIONS — GET /api/notifications
 export type NotificationItem = {
   id: string;
-  type: "SALE" | "PAYMENT" | "WITHDRAWAL" | "WITHDRAWAL_REQUEST" | "SYSTEM";
+  type: "SALE" | "PAYMENT" | "WITHDRAWAL" | "WITHDRAWAL_REQUEST" | "MESSAGE" | "SYSTEM";
   title: string;
   body: string;
   link: string | null;

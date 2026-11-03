@@ -87,6 +87,18 @@ function LegalContent({ document: doc }: { document: LegalDocument }) {
             fraude au paiement, contournement des paiements, usurpation) entraîne la suspension ou
             la suppression immédiate du compte, sans préjudice des actions légales.
           </p>
+          <p>
+            La messagerie BILLOGRAPH est réservée aux utilisateurs connectés dont l&apos;adresse
+            email est confirmée. Une conversation ne peut commencer qu&apos;après acceptation d&apos;une
+            demande d&apos;ami. Vous pouvez bloquer un membre ou signaler un message; les messages
+            signalés sont accessibles à l&apos;administration pour examen et peuvent être supprimés
+            en cas de violation des présentes CGU.
+          </p>
+          <p>
+            Le spam, le harcèlement, les menaces, les arnaques, l&apos;usurpation d&apos;identité et
+            l&apos;envoi de contenus illicites sont interdits dans la messagerie. BILLOGRAPH peut
+            suspendre un compte en cas d&apos;abus signalé et confirmé.
+          </p>
         </Section>
         <Section title="4. Boutiques et produits">
           <p>
@@ -180,6 +192,14 @@ function LegalContent({ document: doc }: { document: LegalDocument }) {
             (numéro Mobile Money ou coordonnées bancaires) que vous fournissez volontairement.
           </p>
           <p>
+            <strong className="text-foreground">Messagerie</strong> : demandes d&apos;ami, messages
+            échangés, statut de lecture et signalements. Le contenu des messages est stocké sur nos
+            serveurs pour fournir le service et n&apos;est pas chiffré de bout en bout. L&apos;administration
+            peut consulter le contenu d&apos;un message signalé pour le modérer. Les messages qui
+            dépassent la durée de conservation configurée sont supprimés; les messages associés à un
+            signalement ouvert sont conservés pendant son examen.
+          </p>
+          <p>
             <strong className="text-foreground">Journal technique</strong> : journal d&apos;audit
             des actions sensibles (connexions, paiements, actions administratives) et
             limitations anti-abus par adresse IP, conservées pour la sécurité du service.
@@ -189,16 +209,23 @@ function LegalContent({ document: doc }: { document: LegalDocument }) {
           <p>
             Vos données servent exclusivement à : fournir le service (boutiques, commandes,
             livraison automatique des produits numériques), encaisser et reverser les paiements,
-            informer des événements de votre compte (ventes, paiements, retraits), assurer la
-            sécurité (prévention de la fraude, journal d&apos;audit) et répondre à vos demandes de
-            support via les contacts affichés sur le site.
+            permettre la messagerie entre amis acceptés, informer des événements de votre compte
+            (ventes, paiements, retraits et messages), assurer la sécurité (prévention de la fraude,
+            traitement des signalements, journal d&apos;audit) et répondre à vos demandes de support
+            via les contacts affichés sur le site.
           </p>
         </Section>
         <Section title="3. Durées de conservation">
           <p>
             Les données de compte sont conservées tant que le compte est actif, puis archivées le
             temps nécessaire aux obligations comptables et légales. Les journaux d&apos;audit sont
-            conservés pour une durée limitée. Les jetons de téléchargement expirent automatiquement
+            conservés pour une durée limitée. La durée de conservation des messages est réglée par
+            l&apos;administration; les messages arrivés à échéance sont purgés au prochain accès à la
+            messagerie. Masquer une conversation ne supprime pas l&apos;historique conservé par l&apos;autre
+            participant. Après examen et approbation d&apos;une demande de suppression de compte, les
+            données du profil sont anonymisées tandis que les historiques financiers et les messages
+            liés à des signalements ouverts peuvent être conservés pour les obligations applicables.
+            Les jetons de téléchargement expirent automatiquement
             (30 jours, 5 téléchargements maximum).
           </p>
         </Section>
@@ -221,8 +248,9 @@ function LegalContent({ document: doc }: { document: LegalDocument }) {
         </Section>
         <Section title="6. Vos droits">
           <p>
-            Vous pouvez demander l&apos;accès, la rectification ou la suppression de vos données,
-            et exercer vos droits conformément à la loi n° 2017-20 portant code du numérique en
+            Vous pouvez demander l&apos;accès, la rectification ou la suppression de vos données
+            depuis les réglages du profil ou via les contacts affichés en pied de page, et exercer vos
+            droits conformément à la loi n° 2017-20 portant code du numérique en
             République du Bénin (APDP), en nous écrivant via les contacts affichés en pied de page.
           </p>
         </Section>

@@ -23,7 +23,10 @@ export type HashRouteName =
   | "vendor-order"
   | "legal"
   | "verify-email"
+  | "password-reset"
+  | "confirm-email-change"
   | "rechmial"
+  | "messages"
   | "not-found";
 
 export type HashRoute = { name: HashRouteName; param: string | null };
@@ -90,9 +93,17 @@ export function parseHash(rawHash: string): HashRoute {
     case "verifier-email":
       // Lien reçu par email : #/verifier-email/{jeton}
       return param ? { name: "verify-email", param } : { name: "not-found", param: null };
+    case "mot-de-passe-oublie":
+      return { name: "password-reset", param: null };
+    case "reinitialiser-mot-de-passe":
+      return param ? { name: "password-reset", param } : { name: "not-found", param: null };
+    case "confirmer-email":
+      return param ? { name: "confirm-email-change", param } : { name: "not-found", param: null };
     case "rechmial":
       // Rechmial IA — assistante d'analyse (utilisateurs connectés).
       return { name: "rechmial", param: null };
+    case "messages":
+      return { name: "messages", param: null };
     default:
       return { name: "not-found", param: null };
   }

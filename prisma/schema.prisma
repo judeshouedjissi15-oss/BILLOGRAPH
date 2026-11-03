@@ -35,6 +35,10 @@ model User {
   headline                String? // titre public, ex : « Auteure & formatrice »
   bio                     String? // présentation libre (2 000 caractères max)
   city                    String? // ville / pays affichés publiquement
+  profileDiscoverable     Boolean                  @default(true)
+  friendRequestsEnabled   Boolean                  @default(true)
+  messagingSuspendedUntil  DateTime?
+  deletionRequestedAt     DateTime? // ville / pays affichés publiquement
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
   sessions                Session[]
@@ -46,7 +50,20 @@ model User {
   processedWithdrawals    Withdrawal[]             @relation("WithdrawalProcessor")
   emailVerificationTokens EmailVerificationToken[]
   emailVerificationCodes  EmailVerificationCode[]
+  accountActionTokens    AccountActionToken[]
+  deletionRequests       UserDeletionRequest[]      @relation("DeletionRequestUser")
+  deletionRequestsReviewed UserDeletionRequest[]    @relation("DeletionRequestReviewer")
   aiConversations         AiConversation[]
+  friendshipsAsA          Friendship[]             @relation("FriendshipUserA")
+  friendshipsAsB          Friendship[]             @relation("FriendshipUserB")
+  friendRequestsSent      Friendship[]             @relation("FriendshipRequester")
+  blocksCreated           UserBlock[]              @relation("UserBlocker")
+  blocksReceived          UserBlock[]              @relation("UserBlocked")
+  conversationsAsA        Conversation[]           @relation("ConversationUserA")
+  conversationsAsB        Conversation[]           @relation("ConversationUserB")
+  sentMessages            ChatMessage[]            @relation("ChatMessageSender")
+  messageReportsCreated   MessageReport[]          @relation("MessageReportReporter")
+  messageReportsReviewed  MessageReport[]          @relation("MessageReportReviewer")
   // OFFICE (Module « Magnifier son appel ») — un compte CLIENT ou VENDEUR peut
   // recevoir un office (poste d'officier) SANS que son rôle de compte ne change :
   // l'espace vendeur reste actif et l'espace professionnel s'ajoute.
@@ -77,12 +94,15 @@ model User {
   trashedTrainings        OfficeTrainingResource[] @relation("TrainingDeletedBy")
   trashedTasks            OfficeTask[]             @relation("TaskDeletedBy")
   trashedCalendars        OfficeCalendarEvent[]    @relation("CalendarDeletedBy")
+
+  @@index([messagingSuspendedUntil])
 }
 
 model Session {
   id        String   @id @default(cuid())
   userId    String
   tokenHash String   @unique // sha256 du token contenu dans le cookie httpOnly
+  userAgent String?
   expiresAt DateTime
   createdAt DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -136,7 +156,7 @@ model Withdrawal {
 model Notification {
   id        String    @id @default(cuid())
   userId    String
-  type      String // SALE | PAYMENT | WITHDRAWAL | WITHDRAWAL_REQUEST | SYSTEM
+  type      String // SALE | PAYMENT | WITHDRAWAL | WITHDRAWAL_REQUEST | MESSAGE | SYSTEM
   title     String
   body      String
   link      String? // route hash interne, ex: "#/dashboard/commande/BLG-XXXXXX"
@@ -146,6 +166,90 @@ model Notification {
 
   @@index([userId, readAt])
   @@index([createdAt])
+}
+
+// MESSAGERIE PRIVÉE — une demande mutuelle avant toute conversation.
+// userAId/userBId sont toujours ordonnés côté serveur pour garantir l'unicité.
+model Friendship {
+  id            String   @id @default(cuid())
+  userAId       String
+  userBId       String
+  requestedById String
+  status        String   @default("PENDING") // PENDING | ACCEPTED | REJECTED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  userA         User     @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User     @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  requestedBy   User     @relation("FriendshipRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId, status])
+  @@index([userBId, status])
+}
+
+model UserBlock {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+  blocker   User     @relation("UserBlocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked   User     @relation("UserBlocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Conversation {
+  id            String        @id @default(cuid())
+  userAId       String
+  userBId       String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  lastMessageAt DateTime      @default(now())
+  userA         User          @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB         User          @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages      ChatMessage[]
+  hiddenAAt     DateTime?
+  hiddenBAt     DateTime?
+
+  @@unique([userAId, userBId])
+  @@index([userAId, lastMessageAt])
+  @@index([userBId, lastMessageAt])
+}
+
+model ChatMessage {
+  id             String          @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime        @default(now())
+  readAt         DateTime?
+  deletedAt      DateTime?
+  conversation   Conversation    @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User            @relation("ChatMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  reports        MessageReport[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderId, readAt])
+  @@index([createdAt])
+}
+
+model MessageReport {
+  id           String      @id @default(cuid())
+  messageId    String
+  reporterId   String
+  reason       String
+  status       String      @default("OPEN") // OPEN | REVIEWED | DISMISSED
+  adminNote    String?
+  reviewedById String?
+  createdAt    DateTime    @default(now())
+  reviewedAt   DateTime?
+  message      ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reporter     User        @relation("MessageReportReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reviewedBy   User?       @relation("MessageReportReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@unique([messageId, reporterId])
+  @@index([status, createdAt])
 }
 
 model Product {
@@ -300,6 +404,8 @@ model PlatformSettings {
   authorBio          String? // brève description de l'auteur
   // Modération des avis : true = publication immédiate sans validation admin.
   reviewsAutoPublish Boolean  @default(false)
+  messagingEnabled   Boolean  @default(true)
+  messageRetentionDays Int    @default(365)
   // Configuration FedaPay sérialisée (JSON) :
   // { "fedapaySecretKey": string, "fedapayWebhookSecret": string, "fedapayEnvironment": "sandbox"|"live" }
   // Secrets jamais journalisés ni audités — uniquement masqués côté API admin.
@@ -313,6 +419,36 @@ model PlatformSettings {
   // liens contenus dans les emails (confirmation d'email). Null = origine de la requête.
   siteUrl            String?
   updatedAt          DateTime @updatedAt
+}
+
+model AccountActionToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   @unique
+  action     String // PASSWORD_RESET | EMAIL_CHANGE
+  targetEmail String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, action])
+}
+
+model UserDeletionRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  status      String   @default("OPEN") // OPEN | APPROVED | REJECTED | CANCELLED
+  userNote    String?
+  adminNote   String?
+  reviewedById String?
+  createdAt   DateTime @default(now())
+  reviewedAt  DateTime?
+  user        User     @relation("DeletionRequestUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy  User?    @relation("DeletionRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([userId, status])
 }
 
 // AVIS DE LA COMMUNAUTÉ — déposés par les visiteurs/utilisateurs depuis la

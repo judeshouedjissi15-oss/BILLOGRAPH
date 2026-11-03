@@ -109,6 +109,7 @@ src/
 │       ├── downloads/            # my?email= + ?token= (livraison sécurisée)
 │       ├── stats/vendor/         # KPIs vendeur (base: commandes PAYÉES uniquement)
 │       ├── admin/                # stats, users, stores, orders, audit, settings
+│       ├── messages/              # demandes d'ami, conversations privées, signalements
 │       └── images/[...key]/      # service d'images publiques (whitelist extensions)
 ├── components/billograph/        # UI BILLOGRAPH (landing, auth, vendeur, boutique, admin…)
 ├── lib/                          # auth, storage, payments (providers), validation Zod, audit…
@@ -156,6 +157,17 @@ Contrat d'API complet : **`API_CONTRACTS.md`** (shapes exactes, codes d'erreur, 
 - Cloche dans le header (tous les comptes) : compteur non-lu, liste des 20 dernières, « Tout marquer comme lu », navigation directe vers la commande concernée. Polling léger (30 s) + rafraîchissement au focus.
 - Événements notifiés : **nouvelle vente / paiement confirmé** (vendeur), **paiement échoué** (vendeur), **demande de retrait** (admins), **décision de retrait** — pré-validé, versé, refusé (vendeur). Écriture fire-and-forget : une notification ne peut jamais casser un paiement.
 
+### Messagerie entre membres
+- Les utilisateurs connectés et confirmés recherchent un membre par nom, activité ou ville (aucun email n'est exposé), envoient une demande d'ami, puis discutent après acceptation.
+- Chaque membre peut masquer son profil et refuser les nouvelles demandes d'ami. Conversations privées à deux, messages texte de 1 à 2 000 caractères, statut lu/non lu, pagination des anciens messages et mise à jour périodique (polling).
+- Blocage et signalement intégrés. L'administration dispose d'une file de signalements et peut classer, traiter ou supprimer un message; chaque décision est auditée.
+- L'administration peut désactiver la messagerie globalement, fixer une durée de conservation (30 à 3 650 jours) et suspendre temporairement la messagerie d'un membre. Les messages expirés sont purgés au prochain accès à la messagerie (au plus une fois par heure par instance); les messages liés à des signalements ouverts sont conservés.
+- Les messages sont stockés sur le serveur et **ne sont pas chiffrés de bout en bout**. Le MVP ne propose ni pièces jointes ni groupes; masquer une conversation ne supprime pas l'historique de l'autre participant. Un message signalé peut être consulté par l'administration pour modération.
+
+### Réglages du compte
+- Confidentialité du profil et demandes d'amis; liste des sessions actives avec fermeture unitaire; changement d'adresse email avec confirmation par lien; réinitialisation de mot de passe par email à usage unique.
+- Demande de suppression avec preuve par mot de passe et examen admin. Une approbation anonymise les données personnelles du profil, désactive le compte et ferme ses sessions; les commandes, données financières et signalements ouverts sont préservés.
+
 ### Pages légales
 - `#/cgu`, `#/confidentialite`, `#/remboursement` : documents complets rédigés pour la plateforme (rôles vendeurs/acheteurs, commissions et retraits, droit béninois, loi n° 2017-20 / APDP, politique de remboursement différenciée numérique/physique). Liens en pied de page.
 
@@ -163,6 +175,8 @@ Contrat d'API complet : **`API_CONTRACTS.md`** (shapes exactes, codes d'erreur, 
 - Validation **Zod côté serveur** sur toutes les entrées ; réponses d'erreur sans fuite interne.
 - Autorisation par rôle et **ownership vérifié en base** (produit → boutique → owner) — anti-IDOR.
 - Sessions httpOnly + SameSite=Lax ; mots de passe scrypt + sel ; rate-limit login (8/min/IP), register (5/min/IP), checkout (10/min/IP) ; **challenge admin** (2 codes secrets serveur, max 5 tentatives, token rotaté, rate-limit 12/min/IP).
+- Messagerie : toutes les routes nécessitent une session active; conversations limitées aux amis acceptés; blocage vérifié côté serveur; limites de débit, validation Zod et contrôle d'appartenance pour les messages et signalements.
+- Actions de compte : liens d'email et de réinitialisation stockés sous forme de hash, expiration et consommation atomique à usage unique; demandes de réinitialisation avec réponse anti-énumération; sessions révocables.
 - Webhooks : **HMAC-SHA256 obligatoire** sur le corps brut, événements horodatés (`PaymentEvent.signatureValid`), rejet audité.
 - Idempotence des paiements (une commande ne peut être payée deux fois ; re-confirmation sans effet) et anti double-clic au checkout (réutilisation d'une commande PENDING < 10 min).
 - Décrément de stock **atomique** (`updateMany stock >= qty`) — anti survente.
@@ -203,11 +217,12 @@ Alternative DevOps : les variables d'environnement `FEDAPAY_SECRET_KEY`, `FEDAPA
 
 **Assumées et documentées :**
 - Emails transactionnels non envoyés (reçu écran + « Mes achats ») — branchement prévu dans `confirmOrderPayment()`.
-- Vérification email / récupération de mot de passe non implémentées.
+- Confirmation d'adresse email et récupération de mot de passe par lien à usage unique implémentées (la récupération admin reste manuelle afin de préserver le challenge à deux codes).
 - Produits physiques : pas de variantes (taille/couleur) ni frais de livraison configurables — stock simple + suivi manuel (« Livrée »).
 - Récupération d'achats par email seul (sans compte) : pratique pour le MVP, à renforcer (code d'accès) avant production.
 - Reversements vendeurs (payouts) non implémentés : le « solde disponible » est un calcul net de commission, pas un virement.
 - Tests automatisés absents (vérification E2E manuelle documentée).
+- Messagerie MVP : polling (pas de temps réel instantané), pas de chiffrement de bout en bout, de groupes ni de pièces jointes; la purge de conservation s'exécute à la demande lorsque les membres utilisent la messagerie, pas via un ordonnanceur dédié.
 - Abonnements/coupons : hors périmètre (schéma prêt à accueillir `Subscription`/`Coupon`).
 
 **Roadmap proposée** (suite du cahier des charges) : emails transactionnels → variantes & livraison → coupons → reversements → sous-domaines réels + stockage S3.

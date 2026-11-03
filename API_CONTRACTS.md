@@ -335,3 +335,85 @@ Sécurité transverse : session ACTIVE obligatoire (tous rôles) · rate limit 2
 → 200 `{ ok: true }` + audit `AI_CONVERSATION_DELETED` · 404 sinon
 
 Vue : `#/rechmial` (entrées : navigation header connectés, menu compte, menu mobile).
+
+---
+
+## MESSAGERIE PRIVÉE  🔒 session active et email confirmé
+
+Les conversations sont limitées à deux membres qui ont accepté leur demande d'ami.
+La recherche ne divulgue jamais les adresses email. Les identifiants de membres ne
+remplacent jamais le contrôle d'appartenance côté serveur.
+
+### GET /api/messages?q=
+→ 200 `{ friends, incomingRequests, outgoingRequests, blockedUsers, searchResults, unreadCount }`
+- `friends`: profils publics, identifiant de conversation, dernier message et nombre non lu.
+- `searchResults`: profil public uniquement; `q` (au moins 2 caractères) recherche le nom,
+  l'activité ou la ville; 20 résultats max, 30 recherches/minute/utilisateur.
+- Demandes et amis sont limités aux 50/100 plus récents; aucun email n'est renvoyé.
+
+### POST /api/messages
+Actions validées côté serveur :
+- `{ action: "request", targetUserId }` — demande d'ami, **201**; 10 demandes par
+  10 minutes/utilisateur. L'utilisateur cible doit être actif et avoir confirmé son email.
+- `{ action: "open", targetUserId }` — ouvre ou réaffiche une conversation existante entre amis acceptés.
+- `{ action: "accept" | "reject", requestId }` — seul le destinataire de la demande peut décider.
+  Accepter crée la conversation et notifie l'expéditeur.
+- `{ action: "remove" | "block" | "unblock", targetUserId }` — retirer l'ami ou gérer le blocage;
+  bloquer met fin à l'amitié active et interdit les interactions dans les deux sens.
+- Notifications in-app pour les demandes, leur acceptation et les messages.
+
+### GET /api/messages/:conversationId
+→ 200 `{ messages: [{ id, senderId, content, createdAt, readAt, deleted, reported }], hasMore }`
+(50 messages par page, ordre chronologique; marque les messages reçus de la page comme lus).
+`?before=<messageId>` charge la page précédente avec un curseur unique.
+→ 404 si la conversation n'appartient pas au compte · 403 si l'amitié n'est plus acceptée
+ou si un membre a bloqué l'autre.
+
+### DELETE /api/messages/:conversationId
+Masque la conversation pour le membre courant uniquement. Elle peut réapparaître à la réception
+d'un nouveau message ou être rouverte explicitement depuis la liste d'amis; aucun message n'est
+supprimé de l'historique de l'autre participant.
+
+### POST /api/messages/:conversationId
+Body `{ content: string (1–2000 caractères) }` → **201** `{ message }`.
+Limite : 60 messages/minute/utilisateur. L'appartenance à la conversation, l'amitié
+acceptée et l'absence de blocage sont revérifiées pour chaque envoi.
+
+### POST /api/messages/reports
+Body `{ messageId, reason: string (5–500 caractères) }` → **201** `{ reportId }`.
+Un membre ne peut signaler que le message reçu de l'autre participant; un même message
+ne peut être signalé qu'une fois par utilisateur. Limite : 5 signalements/10 min/utilisateur.
+
+### GET /api/admin/message-reports
+ADMIN uniquement → `{ reports }`, 200 signalements au maximum.
+Le contenu n'est visible à l'administration que via les signalements.
+
+### PATCH /api/admin/message-reports (ADMIN uniquement)
+Body `{ reportId, action: "dismiss" | "review" | "remove_message", adminNote? }`.
+Classe sans suite, marque traité, ou supprime le message; chaque action est auditée.
+
+### Réglages du compte
+- `GET/PATCH /api/me/preferences` — préférences de découvrabilité et de demandes d'amis.
+- `GET/DELETE /api/me/sessions` — liste les sessions actives et révoque une session par `{ sessionId }`;
+  la session courante doit être fermée via la déconnexion.
+- `POST /api/me/email` — `{ email, password }`, envoie un lien de confirmation à usage unique (24 h).
+- `POST /api/auth/confirm-email-change` — `{ token }`, applique le changement d'email.
+- `POST /api/auth/password-reset` — `{ action: "request", email }` ou
+  `{ action: "complete", token, newPassword }`; réponse de demande non révélatrice de l'existence
+  d'un compte. Les mots de passe admin restent récupérables par procédure manuelle afin de conserver
+  le challenge à deux codes.
+- `POST/DELETE /api/me/deletion-request` — soumet une demande avec `{ password }` ou annule une
+  demande ouverte. Une approbation admin anonymise le profil et ferme les sessions; les historiques
+  financiers et les messages liés à des signalements ouverts sont conservés.
+
+### Contrôles administrateur de messagerie
+- `GET/PATCH /api/admin/messaging-settings` — activation globale et rétention (30 à 3 650 jours),
+  ainsi que compteurs de service.
+- `PATCH /api/admin/users/:id/messaging` — `{ action: "suspend", hours: 1..720, reason }` ou
+  `{ action: "restore" }`; les opérations sont inscrites dans l'audit.
+- `GET/PATCH /api/admin/deletion-requests` — consultation et approbation/refus des demandes.
+
+La messagerie utilise un polling périodique, pas une connexion temps réel. Les messages
+sont conservés en base et ne sont pas chiffrés de bout en bout; leur purge s'effectue à la
+première activité de messagerie après échéance (au plus une fois par heure par instance), sauf
+si un signalement est ouvert. Aucune pièce jointe ni conversation de groupe n'est disponible.

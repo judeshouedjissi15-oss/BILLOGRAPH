@@ -5,7 +5,7 @@
 // Clic sur une notification : marque comme lue puis navigue vers son lien.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, CheckCheck, Megaphone, ShoppingBag, TriangleAlert, Wallet } from "lucide-react";
+import { Bell, CheckCheck, Megaphone, MessageCircle, ShoppingBag, TriangleAlert, Wallet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -25,6 +25,7 @@ const TYPE_ICONS: Record<NotificationItem["type"], typeof Bell> = {
   PAYMENT: TriangleAlert,
   WITHDRAWAL: Wallet,
   WITHDRAWAL_REQUEST: Wallet,
+  MESSAGE: MessageCircle,
   SYSTEM: Megaphone,
 };
 

@@ -12,17 +12,21 @@
 //      accès à la page publique.
 // AUCUNE donnée inventée : tout part de la session serveur et des vraies APIs.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   Camera,
+  Eye,
   KeyRound,
+  Laptop,
   Loader2,
+  Mail,
   Pencil,
   Phone,
   ShieldCheck,
   Trash2,
   UserRound,
+  UserRoundPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "./lib/api-client";
@@ -64,8 +69,245 @@ export function ProfileView({ user, refreshUser }: ProfileViewProps) {
       <AvatarCard user={user} refreshUser={refreshUser} />
       <InfoCard user={user} refreshUser={refreshUser} />
       <PasswordCard user={user} />
+      <PrivacyCard />
+      <SessionsCard />
+      <EmailChangeCard user={user} />
+      {user.role !== "ADMIN" && <DeletionRequestCard />}
       <AccountCard user={user} />
     </div>
+  );
+}
+
+function PrivacyCard() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [discoverable, setDiscoverable] = useState(true);
+  const [friendRequests, setFriendRequests] = useState(true);
+
+  useEffect(() => {
+    apiFetch<{ profileDiscoverable: boolean; friendRequestsEnabled: boolean }>("/api/me/preferences")
+      .then((data) => {
+        setDiscoverable(data.profileDiscoverable);
+        setFriendRequests(data.friendRequestsEnabled);
+      })
+      .catch((err) => toast({
+        variant: "destructive",
+        title: "Réglages de confidentialité indisponibles",
+        description: err instanceof Error ? err.message : "Réessayez.",
+      }))
+      .finally(() => setLoading(false));
+  }, [toast]);
+
+  const updatePreference = async (field: "profileDiscoverable" | "friendRequestsEnabled", value: boolean) => {
+    setSaving(true);
+    try {
+      await apiFetch("/api/me/preferences", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ [field]: value }),
+      });
+      if (field === "profileDiscoverable") setDiscoverable(value);
+      else setFriendRequests(value);
+      toast({ title: "Réglage enregistré" });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Modification impossible",
+        description: err instanceof Error ? err.message : "Réessayez.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Eye className="size-4 text-primary" aria-hidden="true" />
+          Confidentialité et demandes d&apos;amis
+        </CardTitle>
+        <CardDescription>Choisissez si les autres membres peuvent vous trouver et vous inviter.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="profile-discoverable">Profil découvrable</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Désactivé : votre profil public et votre compte sont exclus de la recherche de membres.</p>
+          </div>
+          <Switch id="profile-discoverable" checked={discoverable} disabled={loading || saving} onCheckedChange={(value) => void updatePreference("profileDiscoverable", value)} />
+        </div>
+        <Separator />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label htmlFor="friend-requests">Recevoir des demandes d&apos;amis</Label>
+            <p className="mt-1 text-xs text-muted-foreground">Désactivé : les membres ne peuvent pas vous envoyer de nouvelle invitation.</p>
+          </div>
+          <Switch id="friend-requests" checked={friendRequests} disabled={loading || saving} onCheckedChange={(value) => void updatePreference("friendRequestsEnabled", value)} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SessionsCard() {
+  const { toast } = useToast();
+  const [sessions, setSessions] = useState<Array<{ id: string; createdAt: string; expiresAt: string; current: boolean; device: string | null }>>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = async () => {
+    try {
+      const result = await apiFetch<{ sessions: typeof sessions }>("/api/me/sessions");
+      setSessions(result.sessions);
+    } catch (err) {
+      toast({ variant: "destructive", title: "Sessions indisponibles", description: err instanceof Error ? err.message : "Réessayez." });
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void load(); }, []);
+
+  const revoke = async (id: string) => {
+    setBusyId(id);
+    try {
+      await apiFetch("/api/me/sessions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: id }),
+      });
+      await load();
+      toast({ title: "Session fermée" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Révocation impossible", description: err instanceof Error ? err.message : "Réessayez." });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Laptop className="size-4 text-primary" aria-hidden="true" />
+          Sessions actives
+        </CardTitle>
+        <CardDescription>Fermez une session que vous ne reconnaissez plus. Le changement de mot de passe ferme aussi les autres sessions.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {loading ? <p className="text-sm text-muted-foreground">Chargement…</p> : sessions.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Aucune session active.</p>
+        ) : sessions.map((session) => (
+          <div key={session.id} className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{session.current ? "Cet appareil" : session.device || "Appareil non identifié"}</p>
+              <p className="text-xs text-muted-foreground">Ouverte le {new Date(session.createdAt).toLocaleString("fr-FR")} · expire le {new Date(session.expiresAt).toLocaleDateString("fr-FR")}</p>
+            </div>
+            {!session.current && <Button variant="outline" size="sm" disabled={busyId === session.id} onClick={() => void revoke(session.id)}>{busyId === session.id ? "Fermeture…" : "Fermer"}</Button>}
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmailChangeCard({ user }: { user: User }) {
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const result = await apiFetch<{ message: string }>("/api/me/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      setEmail("");
+      setPassword("");
+      toast({ title: "Email de confirmation envoyé", description: result.message });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Changement d’email impossible", description: err instanceof Error ? err.message : "Réessayez." });
+    } finally {
+      setSaving(false);
+    }
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base"><Mail className="size-4 text-primary" aria-hidden="true" />Changer d&apos;adresse email</CardTitle>
+        <CardDescription>Adresse actuelle : {user.email}. Un lien à usage unique sera envoyé à la nouvelle adresse et expirera après 24 heures.</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-3">
+        <Input type="email" autoComplete="email" maxLength={254} placeholder="Nouvelle adresse email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <Input type="password" autoComplete="current-password" placeholder="Mot de passe actuel" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <Button type="button" disabled={saving || !email || !password} onClick={() => void submit()}>{saving ? "Envoi…" : "Envoyer la confirmation"}</Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DeletionRequestCard() {
+  const { toast } = useToast();
+  const [password, setPassword] = useState("");
+  const [requested, setRequested] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    apiFetch<{ deletionRequestedAt: string | null }>("/api/me/preferences")
+      .then((data) => setRequested(Boolean(data.deletionRequestedAt)))
+      .catch((err) => toast({ variant: "destructive", title: "État du compte indisponible", description: err instanceof Error ? err.message : "Réessayez." }));
+  }, [toast]);
+  const submit = async () => {
+    setBusy(true);
+    try {
+      await apiFetch("/api/me/deletion-request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      });
+      setRequested(true);
+      setPassword("");
+      toast({ title: "Demande transmise à l’administration", description: "La suppression est soumise à un examen manuel." });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Demande impossible", description: err instanceof Error ? err.message : "Réessayez." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const cancel = async () => {
+    setBusy(true);
+    try {
+      await apiFetch("/api/me/deletion-request", { method: "DELETE" });
+      setRequested(false);
+      toast({ title: "Demande annulée" });
+    } catch (err) {
+      toast({ variant: "destructive", title: "Annulation impossible", description: err instanceof Error ? err.message : "Réessayez." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Card className="border-destructive/30">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base text-destructive"><Trash2 className="size-4" aria-hidden="true" />Demander la suppression du compte</CardTitle>
+        <CardDescription>Votre demande sera examinée par l&apos;administration. Si elle est approuvée, les données personnelles du profil seront anonymisées; les historiques financiers et les messages signalés pourront être conservés pour les obligations légales et de modération.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {requested ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium">Une demande de suppression est en cours.</p>
+            <Button type="button" variant="outline" disabled={busy} onClick={() => void cancel()}>{busy ? "Annulation…" : "Annuler la demande"}</Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <Input type="password" autoComplete="current-password" placeholder="Mot de passe pour confirmer" value={password} onChange={(event) => setPassword(event.target.value)} className="max-w-sm" />
+            <Button type="button" variant="destructive" disabled={busy || !password} onClick={() => void submit()}>{busy ? "Envoi…" : "Soumettre ma demande"}</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

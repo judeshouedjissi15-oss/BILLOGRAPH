@@ -9,6 +9,7 @@ import {
   Banknote,
   Copy,
   CreditCard,
+  MessageCircle,
   Info,
   KeyRound,
   Percent,
@@ -46,6 +47,9 @@ import { AnnouncementsTab } from "./announcements-tab";
 import { OfficeTab } from "./office-tab";
 import { TrashTab } from "./trash-tab";
 import { ExportProjectCard } from "./export-project-card";
+import { MessageReportsTab } from "./message-reports-tab";
+import { MessagingControlsTab } from "./messaging-controls-tab";
+import { DeletionRequestsTab } from "./deletion-requests-tab";
 import { formatDate } from "@/lib/format";
 import type { AdminPaymentsInfo, AdminStats, PlatformSettingsInfo, User } from "@/types/api";
 import { cn } from "@/lib/utils";
@@ -625,6 +629,18 @@ export function AdminView({ user }: AdminViewProps) {
           <TabsTrigger value="reviews" className="px-4">
             Avis
           </TabsTrigger>
+          {!readOnly && (
+            <TabsTrigger value="message-reports" className="px-4">
+              <MessageCircle className="mr-1.5 size-4" aria-hidden="true" />
+              Signalements
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="messaging" className="px-4">
+            Réglages messagerie
+          </TabsTrigger>
+          <TabsTrigger value="deletion-requests" className="px-4">
+            Suppressions de compte
+          </TabsTrigger>
           <TabsTrigger value="withdrawals" className="px-4">
             Retraits
           </TabsTrigger>
@@ -662,6 +678,17 @@ export function AdminView({ user }: AdminViewProps) {
         </TabsContent>
         <TabsContent value="reviews" className="mt-6">
           <ReviewsTab readOnly={readOnly} />
+        </TabsContent>
+        {!readOnly && (
+          <TabsContent value="message-reports" className="mt-6">
+            <MessageReportsTab />
+          </TabsContent>
+        )}
+        <TabsContent value="messaging" className="mt-6">
+          <MessagingControlsTab readOnly={readOnly} />
+        </TabsContent>
+        <TabsContent value="deletion-requests" className="mt-6">
+          <DeletionRequestsTab readOnly={readOnly} />
         </TabsContent>
         <TabsContent value="withdrawals" className="mt-6">
           <WithdrawalsTab readOnly={readOnly} />

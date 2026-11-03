@@ -4,7 +4,7 @@
 // - Le cookie ne contient qu'un token aléatoire ; la base stocke uniquement son sha256.
 // - Vérification systématique du statut ACTIVE et de l'expiration de session.
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { SESSION_TTL_DAYS, ROLES, type Role } from "@/lib/constants";
@@ -35,8 +35,14 @@ function tokenToHash(token: string): string {
 export async function createSession(userId: string): Promise<void> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 3600 * 1000);
+  const requestHeaders = await headers();
   await db.session.create({
-    data: { userId, tokenHash: tokenToHash(token), expiresAt },
+    data: {
+      userId,
+      tokenHash: tokenToHash(token),
+      expiresAt,
+      userAgent: requestHeaders.get("user-agent")?.slice(0, 500) ?? null,
+    },
   });
   const store = await cookies();
   store.set(SESSION_COOKIE, token, {
@@ -46,6 +52,37 @@ export async function createSession(userId: string): Promise<void> {
     path: "/",
     expires: expiresAt,
   });
+}
+
+export async function listUserSessions(userId: string) {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  const currentTokenHash = token ? tokenToHash(token) : null;
+  return db.session.findMany({
+    where: { userId, expiresAt: { gt: new Date() } },
+    select: { id: true, createdAt: true, expiresAt: true, userAgent: true, tokenHash: true },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+  }).then((sessions) => sessions.map(({ tokenHash, ...session }) => ({
+    ...session,
+    current: tokenHash === currentTokenHash,
+  })));
+}
+
+export async function revokeUserSession(userId: string, sessionId: string): Promise<boolean> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  const currentTokenHash = token ? tokenToHash(token) : null;
+  const target = await db.session.findFirst({
+    where: { id: sessionId, userId },
+    select: { id: true, tokenHash: true },
+  });
+  if (!target) return false;
+  if (target.tokenHash === currentTokenHash) {
+    throw new HttpError(409, "Utilisez le bouton de déconnexion pour fermer cette session.");
+  }
+  await db.session.delete({ where: { id: target.id } });
+  return true;
 }
 
 export async function destroySession(): Promise<void> {

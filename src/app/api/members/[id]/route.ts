@@ -20,6 +20,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         headline: true,
         bio: true,
         city: true,
+        profileDiscoverable: true,
         createdAt: true,
         stores: {
           where: { status: "ACTIVE" },
@@ -35,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       },
     });
 
-    if (!member || member.status !== "ACTIVE") {
+    if (!member || member.status !== "ACTIVE" || !member.profileDiscoverable) {
       return jsonOk({ member: null }, 404);
     }
 

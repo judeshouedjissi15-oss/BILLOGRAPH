@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -64,6 +65,7 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const goDashboard = () => navigateTo("#/dashboard");
   const goAdmin = () => navigateTo("#/admin");
   const goRechmial = () => navigateTo("#/rechmial");
+  const goMessages = () => navigateTo("#/messages");
   const goProfessionnel = () => navigateTo("#/professionnel");
   const goProfil = () => navigateTo("#/profil");
 
@@ -120,6 +122,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
             >
               <Bot className="mr-1.5 size-4" aria-hidden="true" />
               Rechmial IA
+            </button>
+          )}
+          {user && (
+            <button
+              type="button"
+              className={navLinkClass(route.name === "messages")}
+              onClick={goMessages}
+            >
+              <MessageCircle className="mr-1.5 size-4" aria-hidden="true" />
+              Messages
             </button>
           )}
         </nav>
@@ -262,6 +274,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
               >
                 <LayoutDashboard className="size-4" aria-hidden="true" />
                 Tableau de bord
+              </button>
+            )}
+            {user && (
+              <button
+                type="button"
+                className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                onClick={() => closeThen(goMessages)}
+              >
+                <MessageCircle className="size-4" aria-hidden="true" />
+                Messages
               </button>
             )}
             {user?.officeActive && (

@@ -541,6 +541,13 @@ export function AuthView({ user, userLoading, refreshUser }: AuthViewProps) {
               </>
             )}
           </Card>
+          {!challenge && (
+            <div className="mt-3 text-right">
+              <Button type="button" variant="link" className="h-auto px-0 text-sm" onClick={() => navigateTo("#/mot-de-passe-oublie")}>
+                Mot de passe oublié ?
+              </Button>
+            </div>
+          )}
         </TabsContent>
 
         {/* INSCRIPTION */}

@@ -5,7 +5,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { ROLES } from "@/lib/constants";
 
-export type NotificationType = "SALE" | "PAYMENT" | "WITHDRAWAL" | "WITHDRAWAL_REQUEST" | "SYSTEM";
+export type NotificationType = "SALE" | "PAYMENT" | "WITHDRAWAL" | "WITHDRAWAL_REQUEST" | "MESSAGE" | "SYSTEM";
 
 export async function createNotification(params: {
   userId: string;
