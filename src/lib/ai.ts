@@ -1,6 +1,6 @@
 // RECHMIAL IA — assistante d'analyse de BILLOGRAPH.
 // SÉCURITÉ (règles strictes, toutes appliquées côté serveur) :
-// - z-ai-web-dev-sdk est importé ICI uniquement (backend) — jamais côté client.
+// - L'appel au fournisseur IA est exécuté uniquement côté serveur.
 // - Le contexte réel injecté dans le modèle est agrégé et par RÔLE : un vendeur
 //   ne voit que SES chiffres, un administrateur que des agrégats plateforme,
 //   un client que SES achats — JAMAIS les données d'autres comptes.
@@ -9,7 +9,9 @@
 // - Le prompt système interdit à l'IA de révéler ses instructions, d'inventer
 //   des chiffres, de demander des secrets ou de sortir du domaine métier.
 import "server-only";
-import ZAI from "z-ai-web-dev-sdk";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import path from "node:path";
 import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/auth";
 
@@ -22,6 +24,98 @@ export const AI_RATE_MAX = 20; // messages par fenêtre glissante
 export const AI_RATE_WINDOW_MS = 10 * 60 * 1000;
 
 export type AiChatMessage = { role: "user" | "assistant"; content: string };
+
+type ZaiConfig = {
+  baseUrl: string;
+  apiKey: string;
+};
+
+type ZaiCompletion = {
+  choices?: Array<{ message?: { content?: string | null } }>;
+};
+
+function getZaiErrorDetail(body: string): string | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null) return null;
+  const payload = parsed as Record<string, unknown>;
+  const providerError = payload.error;
+  let detail: unknown = payload.message;
+
+  if (typeof providerError === "string") {
+    detail = providerError;
+  } else if (typeof providerError === "object" && providerError !== null) {
+    const error = providerError as Record<string, unknown>;
+    detail = error.message ?? error.code ?? detail;
+  }
+
+  if (typeof detail !== "string") return null;
+  const safeDetail = detail
+    .replace(/[\u0000-\u001F\u007F]/g, " ")
+    .replace(/Bearer\s+\S+/gi, "Bearer [masqué]")
+    .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/gi, "[clé masquée]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+  return safeDetail || null;
+}
+
+async function loadZaiConfig(): Promise<ZaiConfig> {
+  const envApiKey = process.env.ZAI_API_KEY?.trim();
+  if (envApiKey) {
+    return {
+      baseUrl: (process.env.ZAI_BASE_URL?.trim() || "https://api.z.ai/api/paas/v4").replace(/\/+$/, ""),
+      apiKey: envApiKey,
+    };
+  }
+
+  const candidates = [
+    path.resolve(process.cwd(), ".z-ai-config"),
+    path.join(homedir(), ".z-ai-config"),
+  ];
+
+  for (const configPath of candidates) {
+    let raw: string;
+    try {
+      raw = await readFile(configPath, "utf8");
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "ENOENT"
+      ) {
+        continue;
+      }
+      throw new Error(`Impossible de lire la configuration Z.ai (${configPath}).`);
+    }
+
+    let config: Partial<ZaiConfig>;
+    try {
+      config = JSON.parse(raw) as Partial<ZaiConfig>;
+    } catch {
+      throw new Error(`Le fichier de configuration Z.ai est invalide (${configPath}).`);
+    }
+
+    if (typeof config.baseUrl === "string" && typeof config.apiKey === "string") {
+      const baseUrl = config.baseUrl.trim().replace(/\/+$/, "");
+      const apiKey = config.apiKey.trim();
+      if (baseUrl && apiKey && !apiKey.startsWith("COLLEZ_")) {
+        return { baseUrl, apiKey };
+      }
+    }
+    throw new Error(`Le fichier de configuration Z.ai est incomplet (${configPath}).`);
+  }
+
+  throw new Error(
+    "Configuration Z.ai introuvable. Ajoutez ZAI_API_KEY ou créez .z-ai-config à la racine du projet ou dans le dossier utilisateur.",
+  );
+}
 
 // ----------------------------------------------------------------------------
 // Prompt système — identité + règles de sécurité absolues.
@@ -211,7 +305,7 @@ export async function buildRechmialContext(user: SessionUser): Promise<string> {
 }
 
 // ----------------------------------------------------------------------------
-// Appel réel au modèle (SDK serveur) — avec garde-fou de durée.
+// Appel réel au modèle — avec garde-fou de durée.
 // ----------------------------------------------------------------------------
 function sanitizeMessage(raw: string): string {
   // Retire les caractères de contrôle invisibles (anti-injection d'octets),
@@ -228,25 +322,51 @@ export async function callRechmial(
   userMessage: string,
   contextBlock: string,
 ): Promise<string> {
-  const zai = await ZAI.create();
+  const config = await loadZaiConfig();
   const messages = [
     { role: "system" as const, content: buildSystemPrompt(contextBlock) },
     ...history.slice(-AI_HISTORY_LIMIT),
     { role: "user" as const, content: userMessage },
   ];
 
-  const completion = (await Promise.race([
-    zai.chat.completions.create({
-      model: AI_MODEL,
-      messages,
-      thinking: { type: "disabled" },
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error("Délai dépassé")), AI_TIMEOUT_MS),
-    ),
-  ])) as Awaited<ReturnType<typeof zai.chat.completions.create>>;
+  let response: Response;
+  try {
+    response = await fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        messages,
+        thinking: { type: "enabled" },
+        reasoning_effort: "low",
+      }),
+      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error("Délai dépassé");
+    }
+    throw new Error("Échec de connexion au service Z.ai.");
+  }
 
-  const reply = completion.choices[0]?.message?.content?.trim() ?? "";
+  if (!response.ok) {
+    const detail = getZaiErrorDetail(await response.text());
+    throw new Error(
+      `Erreur upstream Z.ai (HTTP ${response.status})${detail ? `: ${detail}` : "."}`,
+    );
+  }
+
+  let completion: ZaiCompletion;
+  try {
+    completion = (await response.json()) as ZaiCompletion;
+  } catch {
+    throw new Error("Réponse upstream Z.ai invalide.");
+  }
+
+  const reply = completion.choices?.[0]?.message?.content?.trim() ?? "";
   if (!reply) throw new Error("Réponse vide du modèle");
   return sanitizeMessage(reply);
 }

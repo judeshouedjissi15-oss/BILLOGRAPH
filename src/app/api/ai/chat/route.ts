@@ -99,11 +99,63 @@ export async function POST(req: Request) {
     if (err instanceof Error && err.message === "Délai dépassé") {
       return jsonError(504, "Rechmial IA met trop de temps à répondre. Réessayez dans un instant.");
     }
-    if (err instanceof Error && /Configuration file not found or invalid/i.test(err.message)) {
-      console.error("[rechmial] configuration Z.ai absente ou invalide");
-      return jsonError(503, "Rechmial IA n'est pas configurée. Vérifiez le fichier .z-ai-config.");
+    const errorMessage = err instanceof Error ? err.message : "";
+    if (
+      err instanceof Error &&
+      /Configuration Z\.ai introuvable|configuration Z\.ai.*(?:invalide|incomplète)|configuration Z\.ai \(/i.test(
+        err.message,
+      )
+    ) {
+      console.error("[rechmial] configuration Z.ai:", errorMessage);
+      return jsonError(
+        503,
+        `Configuration Z.ai absente ou invalide. ${errorMessage}`,
+      );
     }
-    if (err instanceof Error && /réponse vide|upstream|model/i.test(err.message)) {
+    const upstreamError = /upstream Z\.ai \(HTTP (\d{3})\)(?:: (.+))?/i.exec(errorMessage);
+    if (upstreamError) {
+      const status = Number(upstreamError[1]);
+      const detail = upstreamError[2] ? ` Détail Z.ai : ${upstreamError[2]}` : "";
+      console.error("[rechmial] erreur modèle:", errorMessage);
+      if (status === 400) {
+        return jsonError(
+          502,
+          `Z.ai refuse la requête (HTTP 400).${detail}`,
+        );
+      }
+      if (status === 401) {
+        return jsonError(
+          502,
+          `Z.ai refuse la clé API (HTTP 401). Vérifiez-la dans .z-ai-config.${detail}`,
+        );
+      }
+      if (status === 402 || status === 429) {
+        return jsonError(
+          502,
+          `Le quota ou le crédit API Z.ai est insuffisant (HTTP ${status}). Vérifiez votre compte Z.ai.${detail}`,
+        );
+      }
+      if (status === 403) {
+        return jsonError(
+          502,
+          `Le compte Z.ai n'a pas accès à cette API ou à ce modèle (HTTP 403). Vérifiez votre offre.${detail}`,
+        );
+      }
+      if (status === 404) {
+        return jsonError(
+          502,
+          `L'adresse ou le modèle configuré est introuvable chez Z.ai (HTTP 404).${detail}`,
+        );
+      }
+      return jsonError(
+        502,
+        `Le service Z.ai a répondu avec une erreur HTTP ${status}.${detail}`,
+      );
+    }
+    if (
+      err instanceof Error &&
+      /réponse vide|upstream|model|connexion au service Z\.ai/i.test(err.message)
+    ) {
       console.error("[rechmial] erreur modèle:", err.message);
       return jsonError(502, "Rechmial IA est momentanément indisponible. Réessayez dans un instant.");
     }
