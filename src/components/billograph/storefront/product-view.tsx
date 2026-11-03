@@ -1,10 +1,18 @@
 "use client";
 
-// PAGE DE VENTE PRODUIT (#/produit/{slug}) : fiche détaillée + bouton d'achat
-// qui mène à la page de commande (#/commander/{slug}). GET /api/products/slug/{slug}
+// PAGE DE VENTE PRODUIT (#/produit/{slug}) — fiche produit, réassurance et accès direct au checkout.
 
 import { useEffect, useState } from "react";
-import { Banknote, Download, Package, ShoppingCart, Store as StoreIcon, Truck } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  Download,
+  Package,
+  ShieldCheck,
+  ShoppingBag,
+  Store as StoreIcon,
+  Truck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +32,7 @@ type ProductState =
   | { status: "error"; message: string };
 
 function categoryLabel(categoryId: string): string {
-  return CATEGORIES.find((c) => c.id === categoryId)?.label ?? categoryId;
+  return CATEGORIES.find((category) => category.id === categoryId)?.label ?? categoryId;
 }
 
 export function ProductView({ slug }: { slug: string }) {
@@ -40,11 +48,10 @@ export function ProductView({ slug }: { slug: string }) {
         );
         if (!cancelled) {
           setState({ status: "ready", product: data.product, store: data.store });
-          // Mémorise ce produit : la page commande propose « Réessayer le paiement » vers ici.
           try {
             window.sessionStorage.setItem("blg:last-product", `#/produit/${slug}`);
           } catch {
-            // Stockage indisponible (navigation privée) : sans conséquence.
+            // Le parcours d'achat reste disponible si le stockage du navigateur est désactivé.
           }
         }
       } catch (error) {
@@ -67,9 +74,9 @@ export function ProductView({ slug }: { slug: string }) {
   if (state.status === "loading") {
     return (
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 lg:grid-cols-2" aria-busy="true">
-        <Skeleton className="aspect-video w-full rounded-2xl" />
+        <Skeleton className="aspect-[4/3] w-full rounded-3xl" />
         <div className="space-y-4">
-          <Skeleton className="h-6 w-24" />
+          <Skeleton className="h-6 w-40" />
           <Skeleton className="h-10 w-3/4" />
           <Skeleton className="h-8 w-40" />
           <Skeleton className="h-28 w-full" />
@@ -107,128 +114,177 @@ export function ProductView({ slug }: { slug: string }) {
   }
 
   const { product, store } = state;
-  const outOfStock = product.type === "PHYSICAL" && product.stock !== null && product.stock <= 0;
+  const isDigital = product.type === "DIGITAL";
+  const outOfStock = !isDigital && product.stock !== null && product.stock <= 0;
+  const highlights = isDigital
+    ? [
+        { icon: Download, text: product.hasFile ? "Téléchargement sécurisé après paiement" : "Accès numérique après achat" },
+        { icon: ShieldCheck, text: "Paiement traité en toute sécurité" },
+        { icon: Banknote, text: "Prix affiché en FCFA, sans surprise" },
+      ]
+    : [
+        { icon: Package, text: "Stock actualisé par le vendeur" },
+        { icon: Truck, text: "Modalités de livraison communiquées par le vendeur" },
+        { icon: Banknote, text: "Prix affiché en FCFA, sans surprise" },
+      ];
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
-      {/* Fil d'Ariane simple */}
-      <nav aria-label="Fil d'Ariane" className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-        <button type="button" className="hover:text-primary" onClick={() => navigateTo("#/")}>
-          Accueil
-        </button>
-        <span aria-hidden="true">/</span>
-        <button type="button" className="hover:text-primary" onClick={() => navigateTo(`#/boutique/${store.slug}`)}>
-          {store.name}
-        </button>
-        <span aria-hidden="true">/</span>
-        <span className="truncate text-foreground">{product.title}</span>
-      </nav>
-
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Visuel */}
-        <div className="overflow-hidden rounded-2xl border shadow-sm">
-          {product.imageUrl ? (
-             
-            <img
-              src={product.imageUrl}
-              alt={`Image du produit ${product.title}`}
-              className="aspect-video w-full object-cover"
-            />
-          ) : (
-            <div
-              className="flex aspect-video w-full items-center justify-center"
-              style={{
-                background: `linear-gradient(135deg, ${store.color}1f 0%, ${store.color}3d 55%, ${store.color}59 100%)`,
-              }}
-            >
-              <Package className="size-16" style={{ color: store.color }} aria-hidden="true" />
-            </div>
-          )}
-        </div>
-
-        {/* Infos */}
-        <div className="flex flex-col">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">
-              {product.type === "DIGITAL" ? "Produit numérique" : "Produit physique"}
-            </Badge>
-            <Badge variant="outline">{categoryLabel(product.category)}</Badge>
-            {product.type === "DIGITAL" && product.hasFile && product.fileSize ? (
-              <Badge variant="outline" className="text-muted-foreground">
-                {formatBytes(product.fileSize)}
-              </Badge>
-            ) : null}
-          </div>
-
-          <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">{product.title}</h1>
-
+    <div className="bg-gradient-to-b from-muted/50 via-background to-background">
+      <div className="mx-auto max-w-6xl px-4 pb-14 pt-6 sm:pb-20 sm:pt-8">
+        <nav aria-label="Fil d'Ariane" className="mb-6 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+          <button type="button" className="transition-colors hover:text-primary" onClick={() => navigateTo("#/")}>
+            Accueil
+          </button>
+          <span aria-hidden="true">/</span>
           <button
             type="button"
-            className="mt-3 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            className="max-w-40 truncate transition-colors hover:text-primary"
             onClick={() => navigateTo(`#/boutique/${store.slug}`)}
           >
-            <StoreIcon className="size-4" aria-hidden="true" />
             {store.name}
           </button>
+          <span aria-hidden="true">/</span>
+          <span className="max-w-48 truncate font-medium text-foreground">{product.title}</span>
+        </nav>
 
-          <p className="mt-5 text-3xl font-extrabold tracking-tight">
-            {product.priceXOF === 0 ? (
-              <span className="text-primary">Gratuit</span>
-            ) : (
-              formatXOF(product.priceXOF)
-            )}
-          </p>
-
-          {product.type === "PHYSICAL" && product.stock !== null && (
-            <p className="mt-2 text-sm">
-              {outOfStock ? (
-                <span className="font-medium text-destructive">Rupture de stock</span>
-              ) : product.stock < 10 ? (
-                <span className="font-medium text-amber-600 dark:text-amber-400">
-                  Plus que {product.stock} en stock !
-                </span>
+        <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
+          <div className="min-w-0 space-y-6">
+            <div className="group relative overflow-hidden rounded-3xl border bg-card shadow-sm">
+              {product.imageUrl ? (
+                <img
+                  src={product.imageUrl}
+                  alt={`Visuel de ${product.title}`}
+                  className="aspect-[4/3] w-full object-cover"
+                />
               ) : (
-                <span className="text-muted-foreground">En stock : {product.stock} unité(s)</span>
+                <div
+                  className="flex aspect-[4/3] w-full items-center justify-center"
+                  style={{
+                    background: `radial-gradient(circle at 75% 20%, ${store.color}66, transparent 40%), linear-gradient(135deg, ${store.color}14, ${store.color}44)`,
+                  }}
+                >
+                  <Package className="size-20" style={{ color: store.color }} aria-hidden="true" />
+                </div>
               )}
-            </p>
-          )}
+              <Badge className="absolute left-4 top-4 border border-white/30 bg-background/90 px-3 py-1 text-foreground shadow-sm backdrop-blur">
+                {isDigital ? "Produit numérique" : "Produit physique"}
+              </Badge>
+            </div>
 
-          {product.description ? (
-            <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {product.description}
-            </p>
-          ) : (
-            <p className="mt-5 text-sm italic text-muted-foreground">
-              Le vendeur n&apos;a pas encore ajouté de description.
-            </p>
-          )}
+            <Card className="overflow-hidden rounded-2xl border-0 shadow-sm">
+              <CardContent className="p-6 sm:p-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                  À propos de ce produit
+                </p>
+                <h2 className="mt-2 text-xl font-bold tracking-tight">Tout ce qu&apos;il faut savoir</h2>
+                {product.description ? (
+                  <p className="mt-4 whitespace-pre-line text-sm leading-7 text-muted-foreground sm:text-base">
+                    {product.description}
+                  </p>
+                ) : (
+                  <p className="mt-4 text-sm leading-7 text-muted-foreground">
+                    Retrouvez les informations essentielles de ce produit et contactez la boutique pour toute question.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
-          {/* Réassurance */}
-          <ul className="mt-6 space-y-2.5 rounded-xl border bg-muted/40 p-4 text-sm">
-            <li className="flex items-center gap-2.5">
-              <Download className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              Téléchargement sécurisé pendant 30 jours (5 fois max)
-            </li>
-            <li className="flex items-center gap-2.5">
-              <Truck className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              Livraison suivie directement par le vendeur
-            </li>
-            <li className="flex items-center gap-2.5">
-              <Banknote className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              Paiement en FCFA, confirmation immédiate
-            </li>
-          </ul>
+            <Card className="rounded-2xl shadow-sm">
+              <CardContent className="flex items-center gap-4 p-5">
+                <span
+                  className="flex size-12 shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: `${store.color}1a`, color: store.color }}
+                >
+                  <StoreIcon className="size-5" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">Vendu par</p>
+                  <button
+                    type="button"
+                    className="mt-0.5 max-w-full truncate text-left font-semibold transition-colors hover:text-primary"
+                    onClick={() => navigateTo(`#/boutique/${store.slug}`)}
+                  >
+                    {store.name}
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          <div className="mt-6">
-            <Button
-              size="lg"
-              className="h-12 w-full text-base"
-              disabled={outOfStock}
-              onClick={() => navigateTo(`#/commander/${product.slug}`)}
-            >
-              <ShoppingCart className="size-5" aria-hidden="true" />
-              {outOfStock ? "Produit épuisé" : "Acheter maintenant"}
-            </Button>
+          <div className="min-w-0 lg:sticky lg:top-24">
+            <div className="rounded-3xl border bg-card p-5 shadow-sm sm:p-8">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary">{categoryLabel(product.category)}</Badge>
+                {isDigital && product.hasFile && product.fileSize ? (
+                  <Badge variant="outline">{formatBytes(product.fileSize)}</Badge>
+                ) : null}
+                {!isDigital && product.stock !== null && (
+                  <Badge variant={outOfStock ? "destructive" : "outline"}>
+                    {outOfStock ? "Épuisé" : `${product.stock} en stock`}
+                  </Badge>
+                )}
+              </div>
+
+              <h1 className="mt-5 text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
+                {product.title}
+              </h1>
+              <button
+                type="button"
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+                onClick={() => navigateTo(`#/boutique/${store.slug}`)}
+              >
+                <StoreIcon className="size-4" aria-hidden="true" />
+                {store.name}
+              </button>
+
+              <div className="my-6 border-t" />
+              <div className="flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prix du produit</p>
+                  <p className="mt-1 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">
+                    {product.priceXOF === 0 ? "Gratuit" : formatXOF(product.priceXOF)}
+                  </p>
+                </div>
+                {product.priceXOF > 0 && (
+                  <span className="pb-1 text-xs text-muted-foreground">Paiement en FCFA</span>
+                )}
+              </div>
+
+              <ul className="mt-6 space-y-3 rounded-2xl bg-muted/60 p-4">
+                {highlights.map(({ icon: Icon, text }) => (
+                  <li key={text} className="flex items-start gap-3 text-sm">
+                    <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                      <Icon className="size-3.5" aria-hidden="true" />
+                    </span>
+                    <span className="leading-5">{text}</span>
+                  </li>
+                ))}
+                </ul>
+
+              <Button
+                size="lg"
+                className="mt-6 h-14 w-full rounded-xl text-base font-semibold shadow-md"
+                disabled={outOfStock}
+                onClick={() => navigateTo(`#/commander/${product.slug}`)}
+              >
+                <ShoppingBag className="size-5" aria-hidden="true" />
+                {outOfStock ? "Produit épuisé" : product.priceXOF === 0 ? "Obtenir gratuitement" : "Acheter maintenant"}
+                {!outOfStock && <ArrowRight className="ml-auto size-5" aria-hidden="true" />}
+              </Button>
+              <p className="mt-3 text-center text-xs text-muted-foreground">
+                Vous pourrez vérifier votre commande avant de confirmer.
+              </p>
+            </div>
+
+            {store.phone ? (
+              <a
+                href={`tel:${store.phone.replace(/[^\d+]/g, "")}`}
+                className="mt-4 flex items-center justify-center gap-2 rounded-2xl border bg-background px-4 py-3 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                Une question ? Contacter la boutique
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </a>
+            ) : null}
           </div>
         </div>
       </div>

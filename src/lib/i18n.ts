@@ -8,7 +8,6 @@
 // - Les textes MARKETING longs (héros, descriptions…) restent ceux définis par
 //   l'administrateur dans Paramètres (contenu du site) : c'est du contenu
 //   propriétaire, éditable et donc « traduisible » par le propriétaire lui-même.
-// - L'assistant IA répond dans la langue choisie (voir /api/ai/chat).
 
 export const LANGUAGES = [
   { code: "fr", label: "Français", dir: "ltr" },

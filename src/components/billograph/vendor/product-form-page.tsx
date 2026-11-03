@@ -184,8 +184,8 @@ export function ProductFormPage({ productId }: ProductFormPageProps) {
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isEdit
-              ? "Seuls les textes, le prix, le stock et le statut sont modifiables en MVP."
-              : "Les produits numériques sont livrés automatiquement après paiement."}
+              ? "Vos textes et votre prix apparaissent sur la page de vente publique."
+              : "Renseignez ces informations et ajoutez une belle couverture : votre page de vente sera créée automatiquement."}
           </p>
         </div>
         <Button variant="ghost" className="h-10 hidden gap-1.5 px-2 text-sm sm:inline-flex" onClick={goBack}>
@@ -369,15 +369,18 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="product-description">Description</Label>
+            <Label htmlFor="product-description">Description et points forts</Label>
             <Textarea
               id="product-description"
-              rows={4}
+              rows={6}
               maxLength={4000}
-              placeholder="Décrivez votre produit, son contenu, ses bénéfices…"
+              placeholder={"À qui s'adresse ce produit ? Quel problème résout-il ?\nQue contient-il et quels sont ses avantages ?"}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              Une description claire aide le client à comprendre ce qu&apos;il achète. Elle sera affichée sur votre page produit.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -468,7 +471,7 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="product-image">Image de couverture (max {IMAGE_MAX_MB} Mo)</Label>
+            <Label htmlFor="product-image">Visuel de couverture (max {IMAGE_MAX_MB} Mo)</Label>
             <Input
               id="product-image"
               type="file"

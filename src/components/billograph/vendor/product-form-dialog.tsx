@@ -205,7 +205,7 @@ export function ProductCreateDialog({ open, onOpenChange, onCreated }: ProductCr
         <DialogHeader>
           <DialogTitle>Nouveau produit</DialogTitle>
           <DialogDescription>
-            Les produits numériques sont livrés automatiquement après paiement.
+            Ajoutez vos informations et une couverture : votre page de vente sera créée automatiquement.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -224,15 +224,18 @@ export function ProductCreateDialog({ open, onOpenChange, onCreated }: ProductCr
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="product-description">Description</Label>
+            <Label htmlFor="product-description">Description et points forts</Label>
             <Textarea
               id="product-description"
-              rows={4}
+              rows={6}
               maxLength={4000}
-              placeholder="Décrivez votre produit, son contenu, ses bénéfices…"
+              placeholder={"À qui s'adresse ce produit ? Quel problème résout-il ?\nQue contient-il et quels sont ses avantages ?"}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+            <p className="text-xs text-muted-foreground">
+              Une description claire aide le client à comprendre ce qu&apos;il achète. Elle sera affichée sur votre page produit.
+            </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">

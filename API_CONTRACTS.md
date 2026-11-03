@@ -112,6 +112,8 @@ Règles identiques (publication digitale exige un fichier ; ARCHIVED masque le p
 ### GET /api/products/slug/:slug  🌐 public
 → 200 `{ product: { id, title, slug, description, type, category, priceXOF, imageUrl, hasFile, fileName, fileSize, stock, createdAt }, store: { name, slug, color, phone? } }`
 Publié uniquement (404 sinon).
+Les champs renseignés par le vendeur (titre, description, catégorie, prix et couverture)
+alimentent directement la page de vente `#/produit/{slug}`, qui conduit au checkout `#/commander/{slug}`.
 
 ---
 
@@ -315,26 +317,6 @@ Après modération, le frontend invalide « public-reviews » → la page d'accu
 - `#/confidentialite` — Politique de confidentialité (données collectées, finalités, conservation, tiers=FedaPay, sécurité, droits APDP — loi n° 2017-20).
 - `#/remboursement` — Politique de remboursement (numériques : pas de remboursement après téléchargement sauf défaut avéré / non-livraison ; physiques : 7 jours ouvrables par défaut ; commandes non abouties remboursées).
 - Liens en pied de page (section Informations) + navigation croisée entre documents.
-
-## RECHMIAL IA (assistante d'analyse — SDK serveur z-ai-web-dev-sdk)
-
-Sécurité transverse : session ACTIVE obligatoire (tous rôles) · rate limit 20 msg/10 min/utilisateur (429) · messages 1–2000 caractères nettoyés (422) · contexte injecté au modèle = agrégats du SEUL compte connecté (vendeur : ses ventes/produits ; admin : agrégats plateforme ; client : ses achats) — aucune donnée personnelle d'autrui, aucun secret · prompt système protégé (l'IA refuse de le révéler) · audit `AI_CHAT` SANS contenu · rendu frontend en texte/markdown React échappé (jamais de HTML brut). L'IA conseille et analyse — elle n'exécute aucune action. L'auteur du site (HOUEDJISSI Judes B.) est présenté brièvement si demandé, sans invention.
-
-### POST /api/ai/chat  🔒 tout utilisateur connecté
-- Body `{ message: string (1–2000), conversationId?: string }`
-- → 200 `{ conversationId, reply }` — conversation créée au 1er message (titre = début du message).
-- → 401 non connecté · 404 conversation inexistante ou d'autrui (anti-énumération) · 422 invalide · 429 quota · 502 modèle indisponible · 504 délai (>60 s).
-
-### GET /api/ai/conversations  🔒 tout utilisateur connecté
-→ 200 `{ conversations: [{ id, title, updatedAt }] }` (30 dernières, SES conversations uniquement)
-
-### GET /api/ai/conversations/[id]  🔒 propriétaire uniquement
-→ 200 `{ id, title, messages: [{ id, role: "user"|"assistant", content, createdAt }] }` · 404 sinon
-
-### DELETE /api/ai/conversations/[id]  🔒 propriétaire uniquement
-→ 200 `{ ok: true }` + audit `AI_CONVERSATION_DELETED` · 404 sinon
-
-Vue : `#/rechmial` (entrées : navigation header connectés, menu compte, menu mobile).
 
 ---
 

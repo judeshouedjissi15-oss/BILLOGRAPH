@@ -53,7 +53,6 @@ model User {
   accountActionTokens    AccountActionToken[]
   deletionRequests       UserDeletionRequest[]      @relation("DeletionRequestUser")
   deletionRequestsReviewed UserDeletionRequest[]    @relation("DeletionRequestReviewer")
-  aiConversations         AiConversation[]
   friendshipsAsA          Friendship[]             @relation("FriendshipUserA")
   friendshipsAsB          Friendship[]             @relation("FriendshipUserB")
   friendRequestsSent      Friendship[]             @relation("FriendshipRequester")
@@ -538,33 +537,6 @@ model AdminChallenge {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-// RECHMIAL IA — assistante d'analyse intégrée au SaaS (réponses générées par un
-// vrai modèle via le SDK serveur). Conversations persistées PAR utilisateur :
-// - l'historique n'est accessible QUE par son propriétaire (contrôle en API) ;
-// - aucun secret, aucune donnée personnelle d'autres comptes n'entre en base ici.
-model AiConversation {
-  id        String      @id @default(cuid())
-  userId    String
-  title     String      @default("Nouvelle conversation") // dérivé du 1er message (tronqué)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  messages  AiMessage[]
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId, updatedAt])
-}
-
-model AiMessage {
-  id             String         @id @default(cuid())
-  conversationId String
-  role           String // "user" | "assistant" (jamais d'autre rôle persisté)
-  content        String
-  createdAt      DateTime       @default(now())
-  conversation   AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-
-  @@index([conversationId, createdAt])
 }
 
 model AuditLog {

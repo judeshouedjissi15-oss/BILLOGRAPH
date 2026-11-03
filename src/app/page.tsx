@@ -25,7 +25,6 @@ import { ProfileView } from "@/components/billograph/profile-view";
 import { MemberView } from "@/components/billograph/member-view";
 import { LegalView, type LegalDocument } from "@/components/billograph/legal-view";
 import { EmailVerificationPage } from "@/components/billograph/email-verification-page";
-import { RechmialView } from "@/components/billograph/rechmial/rechmial-view";
 import { MessagesView } from "@/components/billograph/messages-view";
 import { AccountActionPage } from "@/components/billograph/account-action-page";
 import { NotFoundView } from "@/components/billograph/not-found";
@@ -105,10 +104,6 @@ export default function Home() {
         return <AccountActionPage kind="password-reset" token={route.param} refreshUser={refresh} />;
       case "confirm-email-change":
         return <AccountActionPage kind="confirm-email-change" token={route.param} refreshUser={refresh} />;
-      case "rechmial":
-        if (loading) return <PageSkeleton />;
-        if (!user) return <LoginRequired />;
-        return <RechmialView user={user} />;
       case "messages":
         if (loading) return <PageSkeleton />;
         if (!user) return <LoginRequired />;

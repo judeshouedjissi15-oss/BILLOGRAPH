@@ -5,7 +5,6 @@
 
 import { useState } from "react";
 import {
-  Bot,
   ChevronDown,
   HandHeart,
   LayoutDashboard,
@@ -64,7 +63,6 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const goPurchases = () => navigateTo("#/mes-achats");
   const goDashboard = () => navigateTo("#/dashboard");
   const goAdmin = () => navigateTo("#/admin");
-  const goRechmial = () => navigateTo("#/rechmial");
   const goMessages = () => navigateTo("#/messages");
   const goProfessionnel = () => navigateTo("#/professionnel");
   const goProfil = () => navigateTo("#/profil");
@@ -114,16 +112,6 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
             <ShoppingBag className="mr-1.5 size-4" aria-hidden="true" />
             Mes achats
           </button>
-          {user && (
-            <button
-              type="button"
-              className={navLinkClass(route.name === "rechmial")}
-              onClick={goRechmial}
-            >
-              <Bot className="mr-1.5 size-4" aria-hidden="true" />
-              Rechmial IA
-            </button>
-          )}
           {user && (
             <button
               type="button"
@@ -187,10 +175,6 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                 <DropdownMenuItem onClick={goProfil} className="h-10 cursor-pointer">
                   <UserRound className="size-4" aria-hidden="true" />
                   Mon profil
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={goRechmial} className="h-10 cursor-pointer">
-                  <Bot className="size-4" aria-hidden="true" />
-                  Rechmial IA
                 </DropdownMenuItem>
                 {(user.role === "ADMIN" || user.officeActive) && (
                   <DropdownMenuItem onClick={goAdmin} className="h-10 cursor-pointer">
@@ -304,16 +288,6 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
               >
                 <UserRound className="size-4" aria-hidden="true" />
                 Mon profil
-              </button>
-            )}
-            {user && (
-              <button
-                type="button"
-                className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
-                onClick={() => closeThen(goRechmial)}
-              >
-                <Bot className="size-4" aria-hidden="true" />
-                Rechmial IA
               </button>
             )}
             {user?.role === "ADMIN" && (
