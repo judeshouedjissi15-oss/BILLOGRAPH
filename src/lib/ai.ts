@@ -16,7 +16,9 @@ import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/auth";
 
 export const AI_NAME = "Rechmial IA";
-export const AI_MODEL = "glm-5.3";
+export const AI_MODEL = "gemini-3.5-flash-lite";
+const GEMINI_API_URL =
+  "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
 export const AI_MODEL_MAX_MESSAGE = 2000; // caractères max par message utilisateur
 export const AI_HISTORY_LIMIT = 12; // tours récents renvoyés au modèle
 export const AI_TIMEOUT_MS = 60_000;
@@ -25,16 +27,15 @@ export const AI_RATE_WINDOW_MS = 10 * 60 * 1000;
 
 export type AiChatMessage = { role: "user" | "assistant"; content: string };
 
-type ZaiConfig = {
-  baseUrl: string;
+type GeminiConfig = {
   apiKey: string;
 };
 
-type ZaiCompletion = {
+type GeminiCompletion = {
   choices?: Array<{ message?: { content?: string | null } }>;
 };
 
-function getZaiErrorDetail(body: string): string | null {
+function getGeminiErrorDetail(body: string): string | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(body);
@@ -58,6 +59,7 @@ function getZaiErrorDetail(body: string): string | null {
   const safeDetail = detail
     .replace(/[\u0000-\u001F\u007F]/g, " ")
     .replace(/Bearer\s+\S+/gi, "Bearer [masqué]")
+    .replace(/\bAIza[0-9A-Za-z_-]{20,}\b/g, "[clé masquée]")
     .replace(/\bsk-[A-Za-z0-9_-]{12,}\b/gi, "[clé masquée]")
     .replace(/\s+/g, " ")
     .trim()
@@ -65,13 +67,10 @@ function getZaiErrorDetail(body: string): string | null {
   return safeDetail || null;
 }
 
-async function loadZaiConfig(): Promise<ZaiConfig> {
-  const envApiKey = process.env.ZAI_API_KEY?.trim();
+async function loadGeminiConfig(): Promise<GeminiConfig> {
+  const envApiKey = process.env.GEMINI_API_KEY?.trim();
   if (envApiKey) {
-    return {
-      baseUrl: (process.env.ZAI_BASE_URL?.trim() || "https://api.z.ai/api/paas/v4").replace(/\/+$/, ""),
-      apiKey: envApiKey,
-    };
+    return { apiKey: envApiKey };
   }
 
   const candidates = [
@@ -92,28 +91,27 @@ async function loadZaiConfig(): Promise<ZaiConfig> {
       ) {
         continue;
       }
-      throw new Error(`Impossible de lire la configuration Z.ai (${configPath}).`);
+      throw new Error(`Impossible de lire la configuration Gemini (${configPath}).`);
     }
 
-    let config: Partial<ZaiConfig>;
+    let config: Partial<GeminiConfig>;
     try {
-      config = JSON.parse(raw) as Partial<ZaiConfig>;
+      config = JSON.parse(raw) as Partial<GeminiConfig>;
     } catch {
-      throw new Error(`Le fichier de configuration Z.ai est invalide (${configPath}).`);
+      throw new Error(`Le fichier de configuration Gemini est invalide (${configPath}).`);
     }
 
-    if (typeof config.baseUrl === "string" && typeof config.apiKey === "string") {
-      const baseUrl = config.baseUrl.trim().replace(/\/+$/, "");
+    if (typeof config.apiKey === "string") {
       const apiKey = config.apiKey.trim();
-      if (baseUrl && apiKey && !apiKey.startsWith("COLLEZ_")) {
-        return { baseUrl, apiKey };
+      if (apiKey && !apiKey.startsWith("COLLEZ_")) {
+        return { apiKey };
       }
     }
-    throw new Error(`Le fichier de configuration Z.ai est incomplet (${configPath}).`);
+    throw new Error(`Le fichier de configuration Gemini est incomplet (${configPath}).`);
   }
 
   throw new Error(
-    "Configuration Z.ai introuvable. Ajoutez ZAI_API_KEY ou créez .z-ai-config à la racine du projet ou dans le dossier utilisateur.",
+    `Configuration Gemini introuvable. Définissez GEMINI_API_KEY ou renseignez apiKey dans l'un de ces fichiers : ${candidates.join(", ")}.`,
   );
 }
 
@@ -322,7 +320,7 @@ export async function callRechmial(
   userMessage: string,
   contextBlock: string,
 ): Promise<string> {
-  const config = await loadZaiConfig();
+  const config = await loadGeminiConfig();
   const messages = [
     { role: "system" as const, content: buildSystemPrompt(contextBlock) },
     ...history.slice(-AI_HISTORY_LIMIT),
@@ -331,7 +329,7 @@ export async function callRechmial(
 
   let response: Response;
   try {
-    response = await fetch(`${config.baseUrl}/chat/completions`, {
+    response = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -340,7 +338,6 @@ export async function callRechmial(
       body: JSON.stringify({
         model: AI_MODEL,
         messages,
-        thinking: { type: "enabled" },
         reasoning_effort: "low",
       }),
       signal: AbortSignal.timeout(AI_TIMEOUT_MS),
@@ -349,21 +346,21 @@ export async function callRechmial(
     if (error instanceof Error && error.name === "TimeoutError") {
       throw new Error("Délai dépassé");
     }
-    throw new Error("Échec de connexion au service Z.ai.");
+    throw new Error("Échec de connexion au service Gemini.");
   }
 
   if (!response.ok) {
-    const detail = getZaiErrorDetail(await response.text());
+    const detail = getGeminiErrorDetail(await response.text());
     throw new Error(
-      `Erreur upstream Z.ai (HTTP ${response.status})${detail ? `: ${detail}` : "."}`,
+      `Erreur upstream Gemini (HTTP ${response.status})${detail ? `: ${detail}` : "."}`,
     );
   }
 
-  let completion: ZaiCompletion;
+  let completion: GeminiCompletion;
   try {
-    completion = (await response.json()) as ZaiCompletion;
+    completion = (await response.json()) as GeminiCompletion;
   } catch {
-    throw new Error("Réponse upstream Z.ai invalide.");
+    throw new Error("Réponse upstream Gemini invalide.");
   }
 
   const reply = completion.choices?.[0]?.message?.content?.trim() ?? "";

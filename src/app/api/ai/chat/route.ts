@@ -102,59 +102,60 @@ export async function POST(req: Request) {
     const errorMessage = err instanceof Error ? err.message : "";
     if (
       err instanceof Error &&
-      /Configuration Z\.ai introuvable|configuration Z\.ai.*(?:invalide|incomplète)|configuration Z\.ai \(/i.test(
+      /Configuration Gemini introuvable|configuration Gemini.*(?:invalide|incomplet)|configuration Gemini \(/i.test(
         err.message,
       )
     ) {
-      console.error("[rechmial] configuration Z.ai:", errorMessage);
+      console.error("[rechmial] configuration Gemini:", errorMessage);
       return jsonError(
         503,
-        `Configuration Z.ai absente ou invalide. ${errorMessage}`,
+        `Configuration Gemini absente ou invalide. ${errorMessage}`,
       );
     }
-    const upstreamError = /upstream Z\.ai \(HTTP (\d{3})\)(?:: (.+))?/i.exec(errorMessage);
+    const upstreamError =
+      /upstream Gemini \(HTTP (\d{3})\)(?:: (.+))?/i.exec(errorMessage);
     if (upstreamError) {
       const status = Number(upstreamError[1]);
-      const detail = upstreamError[2] ? ` Détail Z.ai : ${upstreamError[2]}` : "";
+      const detail = upstreamError[2] ? ` Détail Gemini : ${upstreamError[2]}` : "";
       console.error("[rechmial] erreur modèle:", errorMessage);
       if (status === 400) {
         return jsonError(
           502,
-          `Z.ai refuse la requête (HTTP 400).${detail}`,
+          `Gemini refuse la requête (HTTP 400).${detail}`,
         );
       }
       if (status === 401) {
         return jsonError(
           502,
-          `Z.ai refuse la clé API (HTTP 401). Vérifiez-la dans .z-ai-config.${detail}`,
+          `Gemini refuse la clé API (HTTP 401). Vérifiez-la dans .z-ai-config.${detail}`,
         );
       }
       if (status === 402 || status === 429) {
         return jsonError(
           502,
-          `Le quota ou le crédit API Z.ai est insuffisant (HTTP ${status}). Vérifiez votre compte Z.ai.${detail}`,
+          `Le quota Gemini est dépassé ou indisponible (HTTP ${status}). Vérifiez les limites de votre projet Google AI Studio.${detail}`,
         );
       }
       if (status === 403) {
         return jsonError(
           502,
-          `Le compte Z.ai n'a pas accès à cette API ou à ce modèle (HTTP 403). Vérifiez votre offre.${detail}`,
+          `La clé Gemini n'a pas accès à l'API ou au modèle (HTTP 403). Vérifiez les restrictions de clé et le projet Google AI Studio.${detail}`,
         );
       }
       if (status === 404) {
         return jsonError(
           502,
-          `L'adresse ou le modèle configuré est introuvable chez Z.ai (HTTP 404).${detail}`,
+          `L'adresse ou le modèle Gemini est introuvable (HTTP 404).${detail}`,
         );
       }
       return jsonError(
         502,
-        `Le service Z.ai a répondu avec une erreur HTTP ${status}.${detail}`,
+        `Le service Gemini a répondu avec une erreur HTTP ${status}.${detail}`,
       );
     }
     if (
       err instanceof Error &&
-      /réponse vide|upstream|model|connexion au service Z\.ai/i.test(err.message)
+      /réponse vide|upstream|model|connexion au service Gemini/i.test(err.message)
     ) {
       console.error("[rechmial] erreur modèle:", err.message);
       return jsonError(502, "Rechmial IA est momentanément indisponible. Réessayez dans un instant.");
