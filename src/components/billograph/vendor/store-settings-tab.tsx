@@ -4,7 +4,7 @@
 // aperçu couleur en direct, lien vers la boutique publique.
 
 import { useEffect, useState } from "react";
-import { Check, ExternalLink } from "lucide-react";
+import { Check, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,10 @@ export function StoreSettingsTab({ store, onSaved }: StoreSettingsTabProps) {
   const [description, setDescription] = useState(store.description ?? "");
   const [color, setColor] = useState(normalizeHexColor(store.color));
   const [phone, setPhone] = useState(store.phone ?? "");
+  const [deliveryInfo, setDeliveryInfo] = useState(store.deliveryInfo ?? "");
+  const [returnPolicy, setReturnPolicy] = useState(store.returnPolicy ?? "");
+  const [trustMessage, setTrustMessage] = useState(store.trustMessage ?? "");
+  const [faqs, setFaqs] = useState(store.faqs ?? []);
   const [saving, setSaving] = useState(false);
 
   // Resynchroniser le formulaire si la boutique change (après sauvegarde).
@@ -36,10 +40,22 @@ export function StoreSettingsTab({ store, onSaved }: StoreSettingsTabProps) {
     setDescription(store.description ?? "");
     setColor(normalizeHexColor(store.color));
     setPhone(store.phone ?? "");
+    setDeliveryInfo(store.deliveryInfo ?? "");
+    setReturnPolicy(store.returnPolicy ?? "");
+    setTrustMessage(store.trustMessage ?? "");
+    setFaqs(store.faqs ?? []);
   }, [store]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (faqs.some((faq) => (faq.question.trim() || faq.answer.trim()) && (!faq.question.trim() || !faq.answer.trim()))) {
+      toast({
+        variant: "destructive",
+        title: "FAQ incomplète",
+        description: "Chaque question fréquente doit contenir une question et une réponse.",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const data = await apiFetch<{ store: Store }>(`/api/stores/${store.slug}`, {
@@ -50,6 +66,12 @@ export function StoreSettingsTab({ store, onSaved }: StoreSettingsTabProps) {
           description: description.trim() || undefined,
           color,
           phone: phone.trim() || undefined,
+          deliveryInfo: deliveryInfo.trim() || undefined,
+          returnPolicy: returnPolicy.trim() || undefined,
+          trustMessage: trustMessage.trim() || undefined,
+          faqs: faqs
+            .filter((faq) => faq.question.trim() && faq.answer.trim())
+            .map((faq) => ({ question: faq.question.trim(), answer: faq.answer.trim() })),
         }),
       });
       toast({
@@ -148,6 +170,39 @@ export function StoreSettingsTab({ store, onSaved }: StoreSettingsTabProps) {
                 className="h-11"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="settings-trust">Message de confiance</Label>
+              <Input id="settings-trust" maxLength={300} value={trustMessage} onChange={(event) => setTrustMessage(event.target.value)} placeholder="Paiement sécurisé, assistance après achat…" className="h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-delivery">Livraison et accès</Label>
+              <Textarea id="settings-delivery" rows={3} maxLength={600} value={deliveryInfo} onChange={(event) => setDeliveryInfo(event.target.value)} placeholder="Délais, modalités de livraison ou d'accès aux fichiers…" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="settings-returns">Retours et remboursements</Label>
+              <Textarea id="settings-returns" rows={3} maxLength={600} value={returnPolicy} onChange={(event) => setReturnPolicy(event.target.value)} placeholder="Expliquez clairement votre politique de retour…" />
+            </div>
+            <fieldset className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <legend className="text-sm font-medium">Questions fréquentes</legend>
+                <Button type="button" variant="outline" size="sm" disabled={faqs.length >= 12} onClick={() => setFaqs([...faqs, { question: "", answer: "" }])}>
+                  <Plus className="size-4" aria-hidden="true" /> Ajouter une question
+                </Button>
+              </div>
+              {faqs.map((faq, index) => (
+                <div key={index} className="space-y-2 rounded-lg border p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor={`store-faq-q-${index}`}>Question {index + 1}</Label>
+                    <Button type="button" variant="ghost" size="icon" aria-label={`Supprimer la question ${index + 1}`} onClick={() => setFaqs(faqs.filter((_, faqIndex) => faqIndex !== index))}>
+                      <Trash2 className="size-4" aria-hidden="true" />
+                    </Button>
+                  </div>
+                  <Input id={`store-faq-q-${index}`} maxLength={160} value={faq.question} onChange={(event) => setFaqs(faqs.map((current, faqIndex) => faqIndex === index ? { ...current, question: event.target.value } : current))} placeholder="Ex. Comment recevoir mon produit ?" />
+                  <Textarea aria-label={`Réponse à la question ${index + 1}`} maxLength={1000} rows={3} value={faq.answer} onChange={(event) => setFaqs(faqs.map((current, faqIndex) => faqIndex === index ? { ...current, answer: event.target.value } : current))} placeholder="Rédigez une réponse précise qui rassure votre client." />
+                </div>
+              ))}
+            </fieldset>
 
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" className="h-11" disabled={saving}>

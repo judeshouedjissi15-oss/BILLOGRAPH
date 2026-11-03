@@ -43,6 +43,40 @@ export const CATEGORIES = [
 ] as const;
 
 export const MAX_FILE_SIZE_MB = 25;
+export const MAX_PRODUCT_FILES = 20;
+export const PRODUCT_FILE_MAX_GB = 50;
+export const PRODUCT_PURCHASE_LABELS = [
+  "Acheter maintenant",
+  "Acheter",
+  "Commander",
+  "Commander maintenant",
+  "Passer commande",
+  "Ajouter au panier",
+  "Je le veux",
+  "Obtenir",
+  "Obtenir maintenant",
+  "Télécharger",
+  "Télécharger maintenant",
+  "Télécharger le produit",
+  "Accéder au contenu",
+  "Accéder maintenant",
+  "Recevoir mon accès",
+  "Commencer maintenant",
+  "Démarrer",
+  "Démarrer maintenant",
+  "Réserver",
+  "Réserver ma place",
+  "M'inscrire",
+  "Rejoindre la formation",
+  "Profiter de l'offre",
+  "Découvrir l'offre",
+  "Choisir cette offre",
+  "Je profite",
+  "Recevoir maintenant",
+  "Obtenir mon exemplaire",
+  "Acheter le guide",
+  "Valider mon choix",
+] as const;
 export const DOWNLOAD_MAX_COUNT = 5; // téléchargements max par jeton
 export const DOWNLOAD_TTL_DAYS = 30; // validité du lien de téléchargement
 export const SESSION_TTL_DAYS = 7;

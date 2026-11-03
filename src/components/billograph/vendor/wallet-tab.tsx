@@ -92,7 +92,7 @@ export function WalletTab() {
   if (loading) {
     return (
       <div className="space-y-6" aria-busy="true">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
@@ -138,6 +138,12 @@ export function WalletTab() {
           value={formatXOF(wallet.commissionXOF)}
           icon={Percent}
           hint="Tout compris — frais de paiement inclus"
+        />
+        <StatCard
+          label="Commissions affiliés"
+          value={formatXOF(wallet.affiliateCommissionXOF)}
+          icon={Percent}
+          hint="Financées par vous, sur les ventes payées"
         />
         <StatCard
           label="Retraits"

@@ -18,6 +18,7 @@ import { ProductsTab } from "./products-tab";
 import { OrdersTab } from "./orders-tab";
 import { WalletTab } from "./wallet-tab";
 import { StoreSettingsTab } from "./store-settings-tab";
+import { AffiliateMarketplaceTab } from "./affiliate-marketplace-tab";
 import type { Store, User } from "@/types/api";
 
 type StoreState =
@@ -157,6 +158,9 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
           <TabsTrigger value="wallet" className="px-4">
             Portefeuille
           </TabsTrigger>
+          <TabsTrigger value="affiliates" className="px-4">
+            Affiliation
+          </TabsTrigger>
           <TabsTrigger value="settings" className="px-4">
             Ma boutique
           </TabsTrigger>
@@ -173,6 +177,9 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
         </TabsContent>
         <TabsContent value="wallet" className="mt-6">
           <WalletTab />
+        </TabsContent>
+        <TabsContent value="affiliates" className="mt-6">
+          <AffiliateMarketplaceTab />
         </TabsContent>
         <TabsContent value="settings" className="mt-6">
           <StoreSettingsTab

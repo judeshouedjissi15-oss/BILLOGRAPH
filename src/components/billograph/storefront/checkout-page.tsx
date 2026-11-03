@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
+import { getActiveProductPrice } from "@/lib/product-pricing";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import type { CheckoutResponse, PaymentStatusInfo, PublicProductDetail } from "@/types/api";
 
@@ -221,7 +222,7 @@ function OrderSummaryCard({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Prix unitaire</span>
             <span className="font-medium">
-              {product.priceXOF === 0 ? "Gratuit" : formatXOF(product.priceXOF)}
+              {getActiveProductPrice(product) === 0 ? "Gratuit" : formatXOF(getActiveProductPrice(product))}
             </span>
           </div>
           {product.type === "PHYSICAL" && (
@@ -241,6 +242,7 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<string>("FEDAPAY");
   const [submitting, setSubmitting] = useState(false);
@@ -272,10 +274,11 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
   }, []);
 
   const paymentsUnavailable =
-    !statusLoading && paymentsStatus !== null && !paymentsStatus.configured && product.priceXOF > 0;
+    !statusLoading && paymentsStatus !== null && !paymentsStatus.configured && getActiveProductPrice(product) > 0;
 
   const maxQuantity = product.type === "PHYSICAL" && product.stock !== null ? product.stock : 1;
-  const total = product.priceXOF * (product.type === "PHYSICAL" ? quantity : 1);
+  const unitPrice = getActiveProductPrice(product);
+  const total = unitPrice * (product.type === "PHYSICAL" ? quantity : 1);
 
   const fedapayOption =
     (PAYMENT_METHODS as readonly PaymentOption[]).find((method) => method.id === "FEDAPAY") ??
@@ -297,6 +300,14 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           slug: product.slug,
+          promoCode: promoCode.trim() || undefined,
+          affiliateCode: (() => {
+            try {
+              return window.sessionStorage.getItem(`blg:affiliate:${product.id}`) || undefined;
+            } catch {
+              return undefined;
+            }
+          })(),
           quantity: product.type === "PHYSICAL" ? quantity : 1,
           customer: {
             name: name.trim(),
@@ -420,6 +431,11 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
             <p className="text-xs text-muted-foreground">
               Utilisé par votre opérateur Mobile Money pour valider le paiement.
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="checkout-promo">Code promotionnel (facultatif)</Label>
+            <Input id="checkout-promo" maxLength={40} value={promoCode} onChange={(event) => setPromoCode(event.target.value.toUpperCase())} placeholder="Saisir un code" className="h-11 uppercase" />
           </div>
 
           {product.type === "PHYSICAL" && (

@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatXOF } from "@/lib/format";
+import { getActiveProductPrice } from "@/lib/product-pricing";
 import type { PublicProduct, Store } from "@/types/api";
 
 type StoreState =
@@ -21,6 +22,7 @@ type StoreState =
   | { status: "error"; message: string };
 
 function ProductCard({ product, color }: { product: PublicProduct; color: string }) {
+  const activePrice = getActiveProductPrice(product);
   return (
     <Card className="group overflow-hidden rounded-2xl py-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
       <div className="relative overflow-hidden">
@@ -52,9 +54,14 @@ function ProductCard({ product, color }: { product: PublicProduct; color: string
           </p>
         ) : null}
         <div className="mt-4 flex items-center justify-between gap-3 border-t pt-4">
-          <p className="font-bold tracking-tight text-primary">
-            {product.priceXOF === 0 ? "Gratuit" : formatXOF(product.priceXOF)}
-          </p>
+          <div>
+            <p className="font-bold tracking-tight text-primary">
+              {activePrice === 0 ? "Gratuit" : formatXOF(activePrice)}
+            </p>
+            {activePrice !== product.priceXOF && (
+              <p className="text-xs text-muted-foreground line-through">{formatXOF(product.priceXOF)}</p>
+            )}
+          </div>
           <Button size="sm" className="h-10 rounded-lg" onClick={() => navigateTo(`#/produit/${product.slug}`)}>
             Découvrir
             <ArrowRight className="size-4" aria-hidden="true" />
@@ -139,6 +146,11 @@ export function StoreView({ slug }: { slug: string }) {
   }
 
   const { store, products } = state;
+  const faqs = store.faqs ?? [];
+  const trustDetails = [
+    store.deliveryInfo ? { title: "Livraison et accès", text: store.deliveryInfo } : null,
+    store.returnPolicy ? { title: "Retours et remboursements", text: store.returnPolicy } : null,
+  ].filter((detail): detail is { title: string; text: string } => detail !== null);
 
   return (
     <div>
@@ -166,6 +178,43 @@ export function StoreView({ slug }: { slug: string }) {
           ) : null}
         </div>
       </header>
+
+      {(store.trustMessage || trustDetails.length > 0 || faqs.length > 0) && (
+        <section className="mx-auto max-w-6xl px-4 pt-8" aria-label="Informations et garanties">
+          {store.trustMessage && (
+            <p className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm font-medium leading-6 text-foreground">
+              {store.trustMessage}
+            </p>
+          )}
+          {trustDetails.length > 0 && (
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              {trustDetails.map((detail) => (
+                <Card key={detail.title} className="rounded-2xl">
+                  <CardContent className="p-5">
+                    <h2 className="font-semibold">{detail.title}</h2>
+                    <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{detail.text}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          {faqs.length > 0 && (
+            <div className="mt-7">
+              <h2 className="text-xl font-bold tracking-tight">Questions fréquentes</h2>
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {faqs.map((faq, index) => (
+                  <Card key={`${faq.question}-${index}`} className="rounded-2xl">
+                    <CardContent className="p-5">
+                      <h3 className="font-semibold">{faq.question}</h3>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Produits */}
       <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14" aria-label="Produits de la boutique">

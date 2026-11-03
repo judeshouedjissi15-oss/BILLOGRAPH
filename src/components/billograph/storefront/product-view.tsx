@@ -20,10 +20,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
+import { getActiveProductPrice } from "@/lib/product-pricing";
 import { CATEGORIES } from "@/lib/constants";
 import type { PublicProductDetail } from "@/types/api";
 
-type ProductStore = { name: string; slug: string; color: string; phone?: string | null };
+type ProductStore = {
+  name: string;
+  slug: string;
+  color: string;
+  phone?: string | null;
+  faqs?: { question: string; answer: string }[];
+  deliveryInfo?: string | null;
+  returnPolicy?: string | null;
+  trustMessage?: string | null;
+};
 
 type ProductState =
   | { status: "loading" }
@@ -47,6 +57,15 @@ export function ProductView({ slug }: { slug: string }) {
           `/api/products/slug/${slug}`,
         );
         if (!cancelled) {
+          const query = window.location.hash.split("?")[1] ?? "";
+          const referral = new URLSearchParams(query).get("ref");
+          if (referral) {
+            try {
+              window.sessionStorage.setItem(`blg:affiliate:${data.product.id}`, referral);
+            } catch {
+              // La visite reste possible si le stockage du navigateur est désactivé.
+            }
+          }
           setState({ status: "ready", product: data.product, store: data.store });
           try {
             window.sessionStorage.setItem("blg:last-product", `#/produit/${slug}`);
@@ -114,6 +133,8 @@ export function ProductView({ slug }: { slug: string }) {
   }
 
   const { product, store } = state;
+  const effectivePrice = getActiveProductPrice(product);
+  const hasActiveSale = effectivePrice !== product.priceXOF;
   const isDigital = product.type === "DIGITAL";
   const outOfStock = !isDigital && product.stock !== null && product.stock <= 0;
   const highlights = isDigital
@@ -218,6 +239,10 @@ export function ProductView({ slug }: { slug: string }) {
                 {isDigital && product.hasFile && product.fileSize ? (
                   <Badge variant="outline">{formatBytes(product.fileSize)}</Badge>
                 ) : null}
+                {product.fileCount && product.fileCount > 1 ? (
+                  <Badge variant="outline">{product.fileCount} fichiers inclus</Badge>
+                ) : null}
+                {hasActiveSale && <Badge className="bg-rose-600 text-white">Promotion</Badge>}
                 {!isDigital && product.stock !== null && (
                   <Badge variant={outOfStock ? "destructive" : "outline"}>
                     {outOfStock ? "Épuisé" : `${product.stock} en stock`}
@@ -242,10 +267,13 @@ export function ProductView({ slug }: { slug: string }) {
                 <div>
                   <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Prix du produit</p>
                   <p className="mt-1 text-3xl font-extrabold tracking-tight text-primary sm:text-4xl">
-                    {product.priceXOF === 0 ? "Gratuit" : formatXOF(product.priceXOF)}
+                    {effectivePrice === 0 ? "Gratuit" : formatXOF(effectivePrice)}
                   </p>
+                  {hasActiveSale && (
+                    <p className="mt-1 text-sm text-muted-foreground line-through">{formatXOF(product.priceXOF)}</p>
+                  )}
                 </div>
-                {product.priceXOF > 0 && (
+                {effectivePrice > 0 && (
                   <span className="pb-1 text-xs text-muted-foreground">Paiement en FCFA</span>
                 )}
               </div>
@@ -260,21 +288,55 @@ export function ProductView({ slug }: { slug: string }) {
                   </li>
                 ))}
                 </ul>
+                {store.trustMessage && (
+                  <p className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm font-medium leading-5">
+                    {store.trustMessage}
+                  </p>
+                )}
 
-              <Button
+                <Button
                 size="lg"
                 className="mt-6 h-14 w-full rounded-xl text-base font-semibold shadow-md"
                 disabled={outOfStock}
                 onClick={() => navigateTo(`#/commander/${product.slug}`)}
               >
                 <ShoppingBag className="size-5" aria-hidden="true" />
-                {outOfStock ? "Produit épuisé" : product.priceXOF === 0 ? "Obtenir gratuitement" : "Acheter maintenant"}
+                {outOfStock
+                  ? "Produit épuisé"
+                  : effectivePrice === 0 && (!product.purchaseLabel || product.purchaseLabel === "Acheter maintenant")
+                    ? "Obtenir gratuitement"
+                    : product.purchaseLabel || "Acheter maintenant"}
                 {!outOfStock && <ArrowRight className="ml-auto size-5" aria-hidden="true" />}
               </Button>
               <p className="mt-3 text-center text-xs text-muted-foreground">
                 Vous pourrez vérifier votre commande avant de confirmer.
               </p>
             </div>
+
+            {(store.deliveryInfo || store.returnPolicy || (store.faqs?.length ?? 0) > 0) && (
+              <Card className="mt-5 rounded-2xl">
+                <CardContent className="space-y-5 p-5">
+                  {store.deliveryInfo && (
+                    <div>
+                      <h2 className="font-semibold">Livraison et accès</h2>
+                      <p className="mt-1 whitespace-pre-line text-sm leading-6 text-muted-foreground">{store.deliveryInfo}</p>
+                    </div>
+                  )}
+                  {store.returnPolicy && (
+                    <div>
+                      <h2 className="font-semibold">Retours et remboursements</h2>
+                      <p className="mt-1 whitespace-pre-line text-sm leading-6 text-muted-foreground">{store.returnPolicy}</p>
+                    </div>
+                  )}
+                  {store.faqs?.map((faq, index) => (
+                    <div key={`${faq.question}-${index}`}>
+                      <h2 className="font-semibold">{faq.question}</h2>
+                      <p className="mt-1 whitespace-pre-line text-sm leading-6 text-muted-foreground">{faq.answer}</p>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
 
             {store.phone ? (
               <a

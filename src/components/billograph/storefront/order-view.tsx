@@ -269,9 +269,6 @@ export function OrderView({ reference }: { reference: string }) {
             <ul className="mt-3 space-y-3">
               {order.items.map((item, index) => {
                 const download = downloadForItem(item.titleSnapshot);
-                const remaining = download
-                  ? Math.max(0, download.maxDownloads - download.downloadCount)
-                  : 0;
                 return (
                   <li key={`${item.titleSnapshot}-${index}`} className="rounded-lg border p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -288,22 +285,27 @@ export function OrderView({ reference }: { reference: string }) {
 
                     {/* Téléchargement produit numérique */}
                     {isPaid && download && (
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md bg-muted/60 p-3">
+                      <div className="mt-3 rounded-md bg-muted/60 p-3">
                         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                           <Download className="size-3.5 text-primary" aria-hidden="true" />
-                          Téléchargements restants : {remaining}/{download.maxDownloads}
-                          {download.expiresAt
-                            ? ` · expire le ${formatDate(download.expiresAt)}`
-                            : ""}
+                          Liens valables jusqu&apos;au {formatDate(download.expiresAt)}
                         </p>
-                        <a
-                          href={`/api/downloads?token=${download.token}`}
-                          download
-                          className={cn(buttonVariants({ size: "sm" }), "h-9")}
-                        >
-                          <Download className="size-4" aria-hidden="true" />
-                          Télécharger
-                        </a>
+                        <ul className="mt-3 space-y-2">
+                          {download.files.map((file, fileIndex) => (
+                            <li key={file.id ?? fileIndex} className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-xs text-muted-foreground">
+                                {file.name} · {Math.max(0, file.maxDownloads - file.downloadCount)} téléchargement(s) restant(s)
+                              </span>
+                              <a
+                                href={`/api/downloads?token=${download.token}${file.id ? `&fileId=${encodeURIComponent(file.id)}` : ""}`}
+                                className={cn(buttonVariants({ size: "sm" }), "h-9")}
+                              >
+                                <Download className="size-4" aria-hidden="true" />
+                                Télécharger
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                     {isPaid && !download && (

@@ -4,9 +4,12 @@
 // GET /api/admin/stores · PATCH /api/admin/stores/:id
 
 import { useCallback, useEffect, useState } from "react";
-import { Eye, ShieldBan, ShieldCheck, Store } from "lucide-react";
+import { Eye, Plus, ShieldBan, ShieldCheck, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -33,6 +36,12 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [detailStoreId, setDetailStoreId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [storeName, setStoreName] = useState("");
+  const [storeSlug, setStoreSlug] = useState("");
+  const [ownerId, setOwnerId] = useState("self");
+  const [users, setUsers] = useState<{ id: string; name: string; email: string; storeSlug: string | null }[]>([]);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -75,6 +84,43 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
     }
   };
 
+  const openCreateForm = async () => {
+    setCreateOpen(true);
+    if (users.length) return;
+    try {
+      const data = await apiFetch<{ users: typeof users }>("/api/admin/users");
+      setUsers(data.users);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Utilisateurs indisponibles", description: error instanceof Error ? error.message : "Réessayez." });
+    }
+  };
+
+  const createStore = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCreating(true);
+    try {
+      const data = await apiFetch<{ store: AdminStore }>("/api/admin/stores", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: storeName.trim(),
+          slug: storeSlug.trim() || undefined,
+          ownerId: ownerId === "self" ? undefined : ownerId,
+        }),
+      });
+      setStores((current) => [data.store, ...current]);
+      setStoreName("");
+      setStoreSlug("");
+      setOwnerId("self");
+      setCreateOpen(false);
+      toast({ title: "Boutique créée", description: `La boutique « ${data.store.name} » est prête.` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Création impossible", description: error instanceof Error ? error.message : "Réessayez dans un instant." });
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-3" aria-busy="true">
@@ -98,19 +144,53 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
     );
   }
 
-  if (stores.length === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 p-12 text-center">
-          <Store className="size-10 text-muted-foreground" aria-hidden="true" />
-          <p className="font-semibold">Aucune boutique sur la plateforme</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
+      {!readOnly && (
+        <div className="flex justify-end">
+          <Button type="button" onClick={() => void openCreateForm()}><Plus className="size-4" aria-hidden="true" /> Créer une boutique</Button>
+        </div>
+      )}
+      {createOpen && (
+        <Card>
+          <CardContent className="p-5">
+            <form onSubmit={createStore} className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="admin-store-name">Nom de la boutique</Label>
+                <Input id="admin-store-name" required minLength={2} maxLength={80} value={storeName} onChange={(event) => setStoreName(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin-store-slug">Adresse (facultative)</Label>
+                <Input id="admin-store-slug" maxLength={60} value={storeSlug} onChange={(event) => setStoreSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} placeholder="ma-boutique" />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Propriétaire</Label>
+                <Select value={ownerId} onValueChange={setOwnerId}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="self">Moi (administrateur)</SelectItem>
+                    {users.filter((user) => !user.storeSlug).map((user) => (
+                      <SelectItem key={user.id} value={user.id}>{user.name} · {user.email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex justify-end gap-2 sm:col-span-2">
+                <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} disabled={creating}>Annuler</Button>
+                <Button type="submit" disabled={creating}>{creating ? "Création…" : "Créer la boutique"}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+      {stores.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center gap-3 p-12 text-center">
+            <Store className="size-10 text-muted-foreground" aria-hidden="true" />
+            <p className="font-semibold">Aucune boutique sur la plateforme</p>
+          </CardContent>
+        </Card>
+      ) : (
       <Card className="py-0">
         <CardContent className="p-0">
           <div className="max-h-96 overflow-y-auto overflow-x-auto">
@@ -212,6 +292,7 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Détail complet de la boutique : produits, commandes, retraits, portefeuille. */}
       <StoreDetailDialog

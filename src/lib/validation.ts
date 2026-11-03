@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   PRODUCT_MAX_PRICE,
   PRODUCT_MIN_PRICE,
+  PRODUCT_PURCHASE_LABELS,
   MIN_WITHDRAWAL_XOF,
 } from "@/lib/constants";
 
@@ -39,6 +40,13 @@ export const storeCreateSchema = z.object({
     .max(60)
     .optional(),
   description: z.string().trim().max(600).optional(),
+  faqs: z.array(z.object({
+    question: z.string().trim().min(2).max(160),
+    answer: z.string().trim().min(2).max(1000),
+  })).max(12).optional(),
+  deliveryInfo: z.string().trim().max(600).optional(),
+  returnPolicy: z.string().trim().max(600).optional(),
+  trustMessage: z.string().trim().max(300).optional(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale attendue (ex: #0B7A6B)")
@@ -56,6 +64,12 @@ export const productCreateSchema = z.object({
     .int("Le prix doit être un entier (FCFA)")
     .min(PRODUCT_MIN_PRICE)
     .max(PRODUCT_MAX_PRICE),
+  salePriceXOF: z.number().int().min(PRODUCT_MIN_PRICE).max(PRODUCT_MAX_PRICE).nullable().optional(),
+  saleStartsAt: z.coerce.date().nullable().optional(),
+  saleEndsAt: z.coerce.date().nullable().optional(),
+  purchaseLabel: z.enum(PRODUCT_PURCHASE_LABELS).default("Acheter maintenant"),
+  affiliateEnabled: z.boolean().default(true),
+  affiliatePercent: z.number().int().min(1).max(50).default(10),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
   stock: z.number().int().min(0).max(1_000_000).optional(),
 });
@@ -66,6 +80,8 @@ export const productUpdateSchema = productCreateSchema.partial().extend({
 
 export const checkoutSchema = z.object({
   slug: z.string().trim().min(1),
+  promoCode: z.string().trim().max(40).optional(),
+  affiliateCode: z.string().trim().max(64).optional(),
   quantity: z.number().int().min(1).max(20).default(1),
   customer: z.object({
     name: z.string().trim().min(2, "Nom requis").max(80),

@@ -6,7 +6,7 @@ import {
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { handleApiError, jsonOk } from "@/lib/api";
-import { HttpError, requireRole, requireUser } from "@/lib/auth";
+import { HttpError, requireUser } from "@/lib/auth";
 import { deleteFileByKey, isPendingUploadKeyForUser, usesBlobStorage } from "@/lib/storage";
 import { rateLimit } from "@/lib/rate-limit";
 import { DIGITAL_CONTENT_TYPES, IMAGE_CONTENT_TYPES } from "@/lib/upload-validation";
@@ -70,9 +70,10 @@ export async function POST(request: NextRequest) {
       request,
       getSignedToken: async (pathname, clientPayload) => {
         const upload = parseUploadPayload(clientPayload);
-        const user = upload.purpose === "avatar"
-          ? await requireUser()
-          : await requireRole("VENDEUR");
+        const user = await requireUser();
+        if (upload.purpose !== "avatar" && user.role !== "VENDEUR" && user.role !== "ADMIN") {
+          throw new HttpError(403, "Accès réservé aux vendeurs et administrateurs");
+        }
         rateLimit(`blob-upload:${user.id}`, 30, 60_000);
 
         const maxBytes = upload.purpose === "avatar"

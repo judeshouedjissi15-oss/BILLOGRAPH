@@ -8,6 +8,7 @@ import {
   ChevronDown,
   HandHeart,
   LayoutDashboard,
+  Link2,
   LogOut,
   Menu,
   MessageCircle,
@@ -66,6 +67,7 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const goMessages = () => navigateTo("#/messages");
   const goProfessionnel = () => navigateTo("#/professionnel");
   const goProfil = () => navigateTo("#/profil");
+  const goAffiliates = () => navigateTo("#/affiliations");
 
   const closeThen = (action: () => void) => {
     setMobileOpen(false);
@@ -164,6 +166,10 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                   <LayoutDashboard className="size-4" aria-hidden="true" />
                   Tableau de bord
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={goAffiliates} className="h-10 cursor-pointer">
+                  <Link2 className="size-4" aria-hidden="true" />
+                  Marché d&apos;affiliation
+                </DropdownMenuItem>
                 {user.officeActive && (
                   <DropdownMenuItem onClick={goProfessionnel} className="h-10 cursor-pointer">
                     <HandHeart className="size-4" aria-hidden="true" />
@@ -258,6 +264,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
               >
                 <LayoutDashboard className="size-4" aria-hidden="true" />
                 Tableau de bord
+              </button>
+            )}
+            {user && (
+              <button
+                type="button"
+                className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                onClick={() => closeThen(goAffiliates)}
+              >
+                <Link2 className="size-4" aria-hidden="true" />
+                Marché d&apos;affiliation
               </button>
             )}
             {user && (

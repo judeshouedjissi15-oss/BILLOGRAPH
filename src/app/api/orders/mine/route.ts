@@ -14,6 +14,8 @@ export async function GET(req: Request) {
     const url = new URL(req.url);
     const status = url.searchParams.get("status");
     const q = url.searchParams.get("q")?.trim() || null;
+    const from = url.searchParams.get("from");
+    const to = url.searchParams.get("to");
     const limitRaw = Number.parseInt(url.searchParams.get("limit") ?? "50", 10);
     const limit = Math.min(Math.max(Number.isNaN(limitRaw) ? 50 : limitRaw, 1), 200);
 
@@ -35,6 +37,20 @@ export async function GET(req: Request) {
         { customer: { name: { contains: q, mode: "insensitive" } } },
       ];
     }
+    if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) throw new HttpError(422, "Date de début invalide");
+    if (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new HttpError(422, "Date de fin invalide");
+    if (from || to) {
+      const start = from ? new Date(`${from}T00:00:00.000Z`) : null;
+      const endExclusive = to ? new Date(new Date(`${to}T00:00:00.000Z`).getTime() + 24 * 60 * 60 * 1000) : null;
+      if ((start && Number.isNaN(start.getTime())) || (endExclusive && Number.isNaN(endExclusive.getTime()))) {
+        throw new HttpError(422, "Période de dates invalide");
+      }
+      if (start && endExclusive && start >= endExclusive) throw new HttpError(422, "La date de début doit précéder la date de fin");
+      where.createdAt = {
+        ...(start ? { gte: start } : {}),
+        ...(endExclusive ? { lt: endExclusive } : {}),
+      };
+    }
 
     const orders = await db.order.findMany({
       where,
@@ -49,6 +65,8 @@ export async function GET(req: Request) {
         status: o.status,
         totalXOF: o.totalXOF,
         commissionXOF: o.commissionXOF,
+        affiliateCommissionXOF: o.affiliateCommissionXOF,
+        discountXOF: o.discountXOF,
         paymentMethod: o.paymentMethod,
         createdAt: o.createdAt,
         paidAt: o.paidAt,

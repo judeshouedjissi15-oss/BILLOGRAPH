@@ -33,6 +33,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const newType = data.type ?? product.type;
     const newStatus = data.status ?? product.status;
     const newStock = data.stock !== undefined ? data.stock : product.stock;
+    const newPrice = data.priceXOF ?? product.priceXOF;
+    const newSalePrice = data.salePriceXOF !== undefined ? data.salePriceXOF : product.salePriceXOF;
+    const newSaleStart = data.saleStartsAt !== undefined ? data.saleStartsAt : product.saleStartsAt;
+    const newSaleEnd = data.saleEndsAt !== undefined ? data.saleEndsAt : product.saleEndsAt;
+    if (newSalePrice !== null && newSalePrice !== undefined && newSalePrice >= newPrice) {
+      throw new HttpError(422, "Le prix promotionnel doit être inférieur au prix normal");
+    }
+    if (newSaleStart && newSaleEnd && newSaleEnd <= newSaleStart) {
+      throw new HttpError(422, "La fin de promotion doit être après son début");
+    }
 
     if (newStatus === "PUBLISHED") {
       if (newType === "DIGITAL" && !product.fileKey) {
@@ -52,6 +62,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         type: data.type,
         category: data.category,
         priceXOF: data.priceXOF,
+        salePriceXOF: data.salePriceXOF,
+        saleStartsAt: data.saleStartsAt,
+        saleEndsAt: data.saleEndsAt,
+        purchaseLabel: data.purchaseLabel,
+        affiliateEnabled: data.affiliateEnabled,
+        affiliatePercent: data.affiliatePercent,
         status: data.status,
         stock: newType === "DIGITAL" ? null : newStock ?? null, // stock = produits physiques
       },
@@ -84,6 +100,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         type: updated.type,
         category: updated.category,
         priceXOF: updated.priceXOF,
+        salePriceXOF: updated.salePriceXOF,
+        saleStartsAt: updated.saleStartsAt,
+        saleEndsAt: updated.saleEndsAt,
+        purchaseLabel: updated.purchaseLabel,
+        affiliateEnabled: updated.affiliateEnabled,
+        affiliatePercent: updated.affiliatePercent,
         status: updated.status,
         imageUrl: updated.imageUrl,
         hasFile: Boolean(updated.fileKey),

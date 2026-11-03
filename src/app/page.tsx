@@ -27,6 +27,7 @@ import { LegalView, type LegalDocument } from "@/components/billograph/legal-vie
 import { EmailVerificationPage } from "@/components/billograph/email-verification-page";
 import { MessagesView } from "@/components/billograph/messages-view";
 import { AccountActionPage } from "@/components/billograph/account-action-page";
+import { AffiliateMarketplaceTab } from "@/components/billograph/vendor/affiliate-marketplace-tab";
 import { NotFoundView } from "@/components/billograph/not-found";
 import { LoginRequired, PageSkeleton } from "@/components/billograph/fallbacks";
 import { SiteDataProvider } from "@/components/billograph/lib/site-data";
@@ -81,6 +82,14 @@ export default function Home() {
         return <OrderView reference={route.param ?? ""} />;
       case "purchases":
         return <PurchasesView />;
+      case "affiliates":
+        if (loading) return <PageSkeleton />;
+        if (!user) return <LoginRequired />;
+        return (
+          <div className="mx-auto max-w-6xl px-4 py-8">
+            <AffiliateMarketplaceTab />
+          </div>
+        );
       case "professionnel": {
         if (loading) return <PageSkeleton />;
         if (!user) return <LoginRequired />;

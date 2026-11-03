@@ -23,7 +23,7 @@ function buildSeries(sinceMs: number, nowMs: number) {
 function zeroStats(nowMs: number) {
   const { labels } = buildSeries(nowMs - PERIOD_DAYS * DAY_MS, nowMs);
   return {
-    totals: { revenueXOF: 0, commissionXOF: 0, netXOF: 0, ordersCount: 0, customersCount: 0 },
+    totals: { revenueXOF: 0, commissionXOF: 0, affiliateCommissionXOF: 0, netXOF: 0, ordersCount: 0, customersCount: 0 },
     period: { revenueXOF: 0, ordersCount: 0, days: PERIOD_DAYS },
     series: labels.map((date) => ({ date, revenueXOF: 0, ordersCount: 0 })),
     topProducts: [],
@@ -48,6 +48,7 @@ export async function GET() {
 
     const revenueXOF = paidOrders.reduce((sum, o) => sum + o.totalXOF, 0);
     const commissionXOF = paidOrders.reduce((sum, o) => sum + o.commissionXOF, 0);
+    const affiliateCommissionXOF = paidOrders.reduce((sum, o) => sum + o.affiliateCommissionXOF, 0);
     const customersCount = new Set(paidOrders.map((o) => o.customerId)).size;
 
     // Fenêtre glissante de 30 jours.
@@ -70,11 +71,19 @@ export async function GET() {
     // commandes payées (agrégation JS — échelle MVP).
     const byProduct = new Map<string, { title: string; units: number; revenueXOF: number }>();
     for (const o of paidOrders) {
+      const itemsGrossXOF = o.items.reduce(
+        (sum, item) => sum + item.unitPriceXOF * item.quantity,
+        0,
+      );
       for (const item of o.items) {
         const key = item.productId ?? `titre:${item.titleSnapshot}`;
         const entry = byProduct.get(key) ?? { title: item.titleSnapshot, units: 0, revenueXOF: 0 };
         entry.units += item.quantity;
-        entry.revenueXOF += item.unitPriceXOF * item.quantity;
+        const itemGrossXOF = item.unitPriceXOF * item.quantity;
+        const itemDiscountXOF = itemsGrossXOF
+          ? Math.round((o.discountXOF * itemGrossXOF) / itemsGrossXOF)
+          : 0;
+        entry.revenueXOF += itemGrossXOF - itemDiscountXOF;
         byProduct.set(key, entry);
       }
     }
@@ -94,7 +103,8 @@ export async function GET() {
       totals: {
         revenueXOF,
         commissionXOF,
-        netXOF: revenueXOF - commissionXOF,
+        affiliateCommissionXOF,
+        netXOF: revenueXOF - commissionXOF - affiliateCommissionXOF,
         ordersCount: paidOrders.length,
         customersCount,
       },

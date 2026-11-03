@@ -34,6 +34,10 @@ export type Store = {
   description: string | null;
   color: string;
   phone: string | null;
+  faqs?: { question: string; answer: string }[];
+  deliveryInfo?: string | null;
+  returnPolicy?: string | null;
+  trustMessage?: string | null;
   status: string;
   createdAt: string;
 };
@@ -46,6 +50,11 @@ export type PublicProduct = {
   type: ProductType;
   category: string;
   priceXOF: number;
+  salePriceXOF?: number | null;
+  saleStartsAt?: string | null;
+  saleEndsAt?: string | null;
+  purchaseLabel?: string;
+  fileCount?: number;
   imageUrl: string | null;
   hasFile: boolean;
   stock: number | null;
@@ -62,6 +71,9 @@ export type VendorProduct = PublicProduct & {
   storeId: string;
   fileName: string | null;
   fileSize: number | null;
+  affiliateEnabled?: boolean;
+  affiliatePercent?: number;
+  files?: { id: string; name: string; size: number }[];
 };
 
 export type DownloadTokenInfo = {
@@ -69,6 +81,13 @@ export type DownloadTokenInfo = {
   expiresAt: string;
   downloadCount: number;
   maxDownloads: number;
+  files?: {
+    id: string | null;
+    name: string;
+    size: number | null;
+    downloadCount: number;
+    maxDownloads: number;
+  }[];
 };
 
 export type OrderItemInfo = {
@@ -93,6 +112,8 @@ export type VendorOrder = {
   status: OrderStatus;
   totalXOF: number;
   commissionXOF: number;
+  affiliateCommissionXOF?: number;
+  discountXOF?: number;
   paymentMethod: string;
   createdAt: string;
   paidAt: string | null;
@@ -130,7 +151,7 @@ export type AdminPaymentsInfo = {
 };
 
 export type VendorStats = {
-  totals: { revenueXOF: number; commissionXOF: number; netXOF: number; ordersCount: number; customersCount: number };
+  totals: { revenueXOF: number; commissionXOF: number; affiliateCommissionXOF: number; netXOF: number; ordersCount: number; customersCount: number };
   period: { revenueXOF: number; ordersCount: number; days: number };
   series: { date: string; revenueXOF: number; ordersCount: number }[];
   topProducts: { title: string; units: number; revenueXOF: number }[];
@@ -145,7 +166,15 @@ export type MyPurchases = {
     items: {
       title: string;
       productId: string;
-      download: DownloadTokenInfo | null;
+      download: DownloadTokenInfo & {
+        files: {
+          id: string | null;
+          name: string;
+          size: number | null;
+          downloadCount: number;
+          maxDownloads: number;
+        }[];
+      } | null;
     }[];
   }[];
 };
@@ -312,6 +341,7 @@ export type AdminReviewsResponse = {
 export type VendorWalletInfo = {
   grossXOF: number;
   commissionXOF: number;
+  affiliateCommissionXOF: number;
   netXOF: number;
   pendingXOF: number;
   paidOutXOF: number;

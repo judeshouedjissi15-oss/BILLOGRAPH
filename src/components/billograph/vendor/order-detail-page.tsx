@@ -266,6 +266,12 @@ export function VendorOrderPage({ reference }: { reference: string }) {
                 − {formatXOF(order.commissionXOF)}
               </span>
             </div>
+            {(order.affiliateCommissionXOF ?? 0) > 0 && (
+              <div className="mt-1 flex justify-between text-sm">
+                <span className="text-muted-foreground">Commission affilié</span>
+                <span className="font-medium text-muted-foreground">− {formatXOF(order.affiliateCommissionXOF ?? 0)}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
 

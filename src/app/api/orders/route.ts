@@ -19,6 +19,7 @@ import { jsonOk, handleApiError, readJson } from "@/lib/api";
 import { HttpError } from "@/lib/auth";
 import { checkoutSchema } from "@/lib/validation";
 import { PAYMENT_METHODS } from "@/lib/constants";
+import { getActiveProductPrice } from "@/lib/product-pricing";
 import { getProvider, publicOrigin, type PaymentProvider } from "@/lib/payments";
 import { confirmOrderPayment } from "@/lib/order-confirm";
 import { newOrderReference } from "@/lib/slug";
@@ -59,13 +60,60 @@ export async function POST(req: Request) {
       throw new HttpError(422, "Moyen de paiement inconnu");
     }
 
+    const now = new Date();
+    const promo = body.promoCode
+      ? await db.promoCode.findFirst({
+          where: { productId: product.id, code: body.promoCode.toUpperCase() },
+        })
+      : null;
+    if (body.promoCode && !promo) throw new HttpError(422, "Code promotionnel invalide");
+    const affiliateLink = body.affiliateCode
+      ? await db.affiliateLink.findFirst({
+          where: { productId: product.id, code: body.affiliateCode, userId: { not: product.store.ownerId } },
+        })
+      : null;
+    if (body.affiliateCode && (!affiliateLink || !product.affiliateEnabled)) {
+      throw new HttpError(422, "Lien d'affiliation invalide ou indisponible");
+    }
+
+    const since = new Date(Date.now() - IDEMPOTENCE_WINDOW_MS);
+    const idempotenceFilter = {
+      createdAt: { gte: since },
+      customer: { email: body.customer.email },
+      items: { some: { productId: product.id } },
+      promoCodeId: promo?.id ?? null,
+      affiliateLinkId: affiliateLink?.id ?? null,
+    };
+    const recentMatching = await db.order.findFirst({
+      where: idempotenceFilter,
+      include: { payment: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const promoAvailable = promo &&
+      promo.active &&
+      (!promo.startsAt || promo.startsAt <= now) &&
+      (!promo.endsAt || promo.endsAt >= now) &&
+      (promo.maxUses === null || promo.usedCount < promo.maxUses);
+    if (promo && !promoAvailable && !recentMatching) {
+      throw new HttpError(422, "Ce code promotionnel n'est pas actif ou a atteint sa limite d'utilisation");
+    }
+
     // Paramètres plateforme (créés par défaut si absents).
     const settings =
       (await db.platformSettings.findUnique({ where: { id: "main" } })) ??
       (await db.platformSettings.create({ data: { id: "main" } }));
 
-    const totalXOF = product.priceXOF * body.quantity;
+    const unitPriceXOF = getActiveProductPrice(product);
+    const subtotalXOF = unitPriceXOF * body.quantity;
+    const discountXOF = promoAvailable
+      ? Math.round((subtotalXOF * promo.discountPercent) / 100)
+      : recentMatching?.discountXOF ?? 0;
+    const totalXOF = recentMatching?.totalXOF ?? subtotalXOF - discountXOF;
     const commissionXOF = Math.round((totalXOF * settings.commissionPercent) / 100);
+    const affiliateCommissionXOF =
+      affiliateLink && product.affiliateEnabled
+        ? Math.round((totalXOF * product.affiliatePercent) / 100)
+        : 0;
     const isFree = totalXOF === 0;
     const paymentMethod = isFree ? "FREE" : "FEDAPAY";
 
@@ -74,11 +122,12 @@ export async function POST(req: Request) {
     const provider = isFree ? null : await getProvider("FEDAPAY");
     if (!isFree && !provider) throw new HttpError(422, NOT_CONFIGURED_MESSAGE);
 
-    const since = new Date(Date.now() - IDEMPOTENCE_WINDOW_MS);
     const baseReuseWhere = {
       createdAt: { gte: since },
       customer: { email: body.customer.email },
       items: { some: { productId: product.id } },
+      promoCodeId: promo?.id ?? null,
+      affiliateLinkId: affiliateLink?.id ?? null,
     };
     // Produit gratuit : on récupère aussi la commande déjà confirmée (PAID)
     // du double-clic ; produit payant : uniquement les commandes en attente
@@ -198,6 +247,10 @@ export async function POST(req: Request) {
           status: "PENDING",
           totalXOF,
           commissionXOF,
+          affiliateCommissionXOF,
+          discountXOF,
+          affiliateLinkId: affiliateLink?.id ?? null,
+          promoCodeId: promo?.id ?? null,
           paymentMethod,
         },
       });
@@ -206,10 +259,21 @@ export async function POST(req: Request) {
           orderId: order.id,
           productId: product.id,
           titleSnapshot: product.title,
-          unitPriceXOF: product.priceXOF,
+          unitPriceXOF,
           quantity: body.quantity,
         },
       });
+      if (promoAvailable && promo) {
+        const usage = await tx.promoCode.updateMany({
+          where: {
+            id: promo.id,
+            active: true,
+            ...(promo.maxUses === null ? {} : { usedCount: { lt: promo.maxUses } }),
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (usage.count !== 1) throw new HttpError(409, "Ce code promotionnel vient d'atteindre sa limite d'utilisation");
+      }
       const payment = await tx.payment.create({
         data: {
           orderId: order.id,

@@ -51,6 +51,8 @@ model User {
   emailVerificationTokens EmailVerificationToken[]
   emailVerificationCodes  EmailVerificationCode[]
   accountActionTokens    AccountActionToken[]
+  productUploads         ProductUpload[]
+  affiliateLinks          AffiliateLink[]
   deletionRequests       UserDeletionRequest[]      @relation("DeletionRequestUser")
   deletionRequestsReviewed UserDeletionRequest[]    @relation("DeletionRequestReviewer")
   friendshipsAsA          Friendship[]             @relation("FriendshipUserA")
@@ -115,6 +117,10 @@ model Store {
   name        String
   slug        String       @unique // identifiant public unique, ex: "librairie-noun"
   description String?
+  faqs        String?        // tableau JSON de questions/réponses public
+  deliveryInfo String?
+  returnPolicy String?
+  trustMessage String?
   color       String       @default("#0B7A6B") // couleur d'accent de la boutique
   phone       String?
   status      String       @default("ACTIVE") // ACTIVE | SUSPENDED
@@ -260,11 +266,18 @@ model Product {
   type           String          @default("DIGITAL") // DIGITAL | PHYSICAL
   category       String          @default("autre")
   priceXOF       Int             @default(0)
+  salePriceXOF   Int?
+  saleStartsAt   DateTime?
+  saleEndsAt     DateTime?
+  purchaseLabel String          @default("Acheter maintenant")
+  affiliateEnabled Boolean      @default(true)
+  affiliatePercent Int          @default(10)
   status         String          @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
   imageUrl       String?
   fileKey        String? // clé du fichier numérique dans le stockage privé (jamais exposée publiquement)
   fileName       String?
   fileSize       Int?
+  files          ProductFile[]
   stock          Int? // produits physiques uniquement (null = illimité/non applicable)
   // CORBEILLE D'ADMINISTRATION — toute suppression passe par une mise à la
   // corbeille (deletedAt) : récupérable et prouvable. Seule la purge définitive
@@ -277,6 +290,8 @@ model Product {
   orderItems     OrderItem[]
   downloadTokens DownloadToken[]
   deletedByUser  User?           @relation("ProductDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  affiliateLinks AffiliateLink[]
+  promoCodes     PromoCode[]
 
   @@index([storeId])
   @@index([status])
@@ -299,6 +314,10 @@ model Order {
   status         String          @default("PENDING") // PENDING | PAID | FAILED | CANCELLED | REFUNDED | DELIVERED
   totalXOF       Int
   commissionXOF  Int             @default(0) // commission plateforme prélevée (configurable côté admin)
+  affiliateCommissionXOF Int     @default(0)
+  discountXOF    Int             @default(0)
+  affiliateLinkId String?
+  promoCodeId    String?
   paymentMethod  String          @default("FEDAPAY") // FEDAPAY | FREE
   createdAt      DateTime        @default(now())
   paidAt         DateTime?
@@ -308,6 +327,8 @@ model Order {
   items          OrderItem[]
   payment        Payment?
   downloadTokens DownloadToken[]
+  affiliateLink  AffiliateLink? @relation(fields: [affiliateLinkId], references: [id], onDelete: SetNull)
+  promoCode      PromoCode?     @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
 
   @@index([storeId])
   @@index([customerId])
@@ -365,8 +386,84 @@ model DownloadToken {
   createdAt     DateTime @default(now())
   order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  fileDownloads ProductFileDownload[]
 
   @@index([orderId])
+}
+
+model ProductFile {
+  id        String   @id @default(cuid())
+  productId String
+  fileKey   String   @unique
+  fileName  String
+  fileSize  BigInt
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  downloads ProductFileDownload[]
+
+  @@index([productId, position])
+}
+
+model ProductFileDownload {
+  id              String       @id @default(cuid())
+  downloadTokenId String
+  productFileId   String
+  downloadCount   Int          @default(0)
+  updatedAt       DateTime     @updatedAt
+  downloadToken   DownloadToken @relation(fields: [downloadTokenId], references: [id], onDelete: Cascade)
+  productFile     ProductFile  @relation(fields: [productFileId], references: [id], onDelete: Cascade)
+
+  @@unique([downloadTokenId, productFileId])
+  @@index([productFileId])
+}
+
+model ProductUpload {
+  id          String   @id @default(cuid())
+  ownerId     String
+  key         String   @unique
+  uploadId    String
+  fileName    String
+  contentType String
+  fileSize    BigInt
+  completed   Boolean  @default(false)
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, expiresAt])
+}
+
+model AffiliateLink {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orders    Order[]
+
+  @@unique([userId, productId])
+  @@index([productId])
+}
+
+model PromoCode {
+  id               String   @id @default(cuid())
+  productId        String
+  code             String
+  discountPercent  Int
+  startsAt         DateTime?
+  endsAt           DateTime?
+  maxUses          Int?
+  usedCount        Int      @default(0)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orders           Order[]
+
+  @@unique([productId, code])
+  @@index([productId, active])
 }
 
 model PlatformSettings {

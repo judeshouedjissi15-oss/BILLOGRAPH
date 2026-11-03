@@ -17,9 +17,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
 import { cleanupPrivateBlobs, uploadPrivateBlob } from "../lib/blob-upload";
+import {
+  discardLargeProductFile,
+  uploadLargeProductFile,
+  type UploadedProductFile,
+} from "../lib/large-file-upload";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes } from "@/lib/format";
-import { MAX_FILE_SIZE_MB, PRODUCT_MAX_PRICE, CATEGORIES } from "@/lib/constants";
+import {
+  MAX_PRODUCT_FILES,
+  PRODUCT_FILE_MAX_GB,
+  PRODUCT_MAX_PRICE,
+  PRODUCT_PURCHASE_LABELS,
+  CATEGORIES,
+} from "@/lib/constants";
 import type { ProductStatus, ProductType, Store, VendorProduct } from "@/types/api";
 
 const DIGITAL_ACCEPT = ".pdf,.zip,.mp3,.mp4,.apk,.epub";
@@ -32,6 +43,14 @@ function priceError(priceValue: string): string | null {
   if (!Number.isInteger(price)) return "Le prix doit être un nombre entier de FCFA.";
   if (price > PRODUCT_MAX_PRICE) return `Le prix ne peut pas dépasser ${PRODUCT_MAX_PRICE} FCFA.`;
   return null;
+}
+
+function dateToLocalInput(value: string | null | undefined): string {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
 }
 
 type PageState =
@@ -205,7 +224,23 @@ export function ProductFormPage({ productId }: ProductFormPageProps) {
 
 /* ---------------------------------- CRÉATION ---------------------------------- */
 
-function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
+export function AdminProductCreateForm({
+  storeId,
+  onCreated,
+}: {
+  storeId: string;
+  onCreated: () => void;
+}) {
+  return <ProductCreateForm storeId={storeId} onCreated={onCreated} />;
+}
+
+function ProductCreateForm({
+  storeId,
+  onCreated,
+}: {
+  storeId?: string;
+  onCreated: () => void;
+}) {
   const { toast } = useToast();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -214,9 +249,21 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [publishNow, setPublishNow] = useState(true);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [image, setImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [salePrice, setSalePrice] = useState("");
+  const [saleStartsAt, setSaleStartsAt] = useState("");
+  const [saleEndsAt, setSaleEndsAt] = useState("");
+  const [purchaseLabel, setPurchaseLabel] = useState<string>("Acheter maintenant");
+  const [affiliateEnabled, setAffiliateEnabled] = useState(true);
+  const [affiliatePercent, setAffiliatePercent] = useState("10");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoDiscountPercent, setPromoDiscountPercent] = useState("10");
+  const [promoStartsAt, setPromoStartsAt] = useState("");
+  const [promoEndsAt, setPromoEndsAt] = useState("");
+  const [promoMaxUses, setPromoMaxUses] = useState("");
+  const [fileProgress, setFileProgress] = useState<{ name: string; percent: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   // Aperçu de l'image de couverture + nettoyage de l'URL objet.
@@ -230,16 +277,27 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
     return () => URL.revokeObjectURL(url);
   }, [image]);
 
-  const handleFileChange = (selected: File | null) => {
-    if (selected && selected.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+  const handleFilesChange = (selected: FileList | null) => {
+    const nextFiles = Array.from(selected ?? []);
+    if (nextFiles.length > MAX_PRODUCT_FILES) {
       toast({
         variant: "destructive",
-        title: "Fichier trop volumineux",
-        description: `La taille maximale est de ${MAX_FILE_SIZE_MB} Mo.`,
+        title: "Trop de fichiers",
+        description: `Vous pouvez joindre ${MAX_PRODUCT_FILES} fichiers au maximum.`,
       });
       return;
     }
-    setFile(selected);
+    const maxBytes = PRODUCT_FILE_MAX_GB * 1024 * 1024 * 1024;
+    const tooLarge = nextFiles.find((selectedFile) => selectedFile.size > maxBytes);
+    if (tooLarge) {
+      toast({
+        variant: "destructive",
+        title: "Fichier trop volumineux",
+        description: `${tooLarge.name} dépasse la limite de ${PRODUCT_FILE_MAX_GB} Go.`,
+      });
+      return;
+    }
+    setFiles(nextFiles);
   };
 
   const handleImageChange = (selected: File | null) => {
@@ -280,55 +338,80 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
       });
       return;
     }
-    if (type === "DIGITAL" && publishNow && !file) {
+    if (type === "DIGITAL" && publishNow && files.length === 0) {
       toast({
         variant: "destructive",
         title: "Fichier numérique requis",
-        description: "Ajoutez le fichier à livrer avant de publier (PDF, ZIP, MP3, MP4, APK…).",
+        description: "Ajoutez au moins un fichier à livrer avant de publier.",
+      });
+      return;
+    }
+    if (salePrice.trim() && (priceError(salePrice) || Number(salePrice) >= Number(price))) {
+      toast({
+        variant: "destructive",
+        title: "Prix promotionnel invalide",
+        description: "Le prix promotionnel doit être inférieur au prix normal.",
+      });
+      return;
+    }
+    if (saleStartsAt && saleEndsAt && new Date(saleEndsAt) <= new Date(saleStartsAt)) {
+      toast({
+        variant: "destructive",
+        title: "Période invalide",
+        description: "La fin de promotion doit être après son début.",
       });
       return;
     }
 
     setSubmitting(true);
     const uploadedKeys: string[] = [];
+    const uploadedLargeFiles: UploadedProductFile[] = [];
     try {
-      const directFile = file ? await uploadPrivateBlob(file, "product-file") : null;
-      if (directFile) uploadedKeys.push(directFile.key);
+      for (const selectedFile of files) {
+        setFileProgress({ name: selectedFile.name, percent: 0 });
+        const uploadedFile = await uploadLargeProductFile(selectedFile, (percent) =>
+          setFileProgress({ name: selectedFile.name, percent }),
+        );
+        uploadedLargeFiles.push(uploadedFile);
+      }
       const directImage = image ? await uploadPrivateBlob(image, "product-image") : null;
       if (directImage) uploadedKeys.push(directImage.key);
-      const directMode = Boolean(directFile || directImage);
-
-      if (directMode) {
-        if ((file && !directFile) || (image && !directImage)) {
-          throw new Error("Impossible de terminer l'envoi direct des fichiers.");
-        }
+      const payload = {
+        title: title.trim(),
+        description: description.trim(),
+        type,
+        category,
+        ...(storeId ? { storeId } : {}),
+        priceXOF: Number(price),
+        salePriceXOF: salePrice.trim() ? Number(salePrice) : null,
+        saleStartsAt: saleStartsAt ? new Date(saleStartsAt).toISOString() : null,
+        saleEndsAt: saleEndsAt ? new Date(saleEndsAt).toISOString() : null,
+        purchaseLabel,
+        affiliateEnabled,
+        affiliatePercent: Number(affiliatePercent),
+        promoCode: promoCode.trim().toUpperCase() || undefined,
+        promoDiscountPercent: promoCode.trim() ? Number(promoDiscountPercent) : undefined,
+        promoStartsAt: promoStartsAt ? new Date(promoStartsAt).toISOString() : undefined,
+        promoEndsAt: promoEndsAt ? new Date(promoEndsAt).toISOString() : undefined,
+        promoMaxUses: promoMaxUses.trim() ? Number(promoMaxUses) : undefined,
+        status: publishNow ? "PUBLISHED" : "DRAFT",
+        ...(type === "PHYSICAL" ? { stock: Number(stock || "0") } : {}),
+        files: uploadedLargeFiles,
+      };
+      if (image && !directImage) {
+        const formData = new FormData();
+        Object.entries(payload).forEach(([key, value]) => {
+          if (key === "files") formData.set(key, JSON.stringify(value));
+          else if (value !== undefined && value !== null) formData.set(key, String(value));
+        });
+        formData.set("image", image);
+        await apiFetch("/api/products", { method: "POST", body: formData });
+      } else {
         await apiFetch("/api/products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: title.trim(),
-            description: description.trim(),
-            type,
-            category,
-            priceXOF: Number(price),
-            status: publishNow ? "PUBLISHED" : "DRAFT",
-            ...(type === "PHYSICAL" ? { stock: Number(stock || "0") } : {}),
-            file: directFile,
-            image: directImage,
-          }),
+          body: JSON.stringify({ ...payload, image: directImage }),
         });
-      } else {
-        const formData = new FormData();
-        formData.set("title", title.trim());
-        formData.set("description", description.trim());
-        formData.set("type", type);
-        formData.set("category", category);
-        formData.set("priceXOF", String(Number(price)));
-        formData.set("status", publishNow ? "PUBLISHED" : "DRAFT");
-        if (type === "PHYSICAL") formData.set("stock", String(Number(stock || "0")));
-        if (file) formData.set("file", file);
-        if (image) formData.set("image", image);
-        await apiFetch("/api/products", { method: "POST", body: formData });
       }
 
       toast({
@@ -340,12 +423,20 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
       onCreated();
     } catch (error) {
       await cleanupPrivateBlobs(uploadedKeys);
+      for (const uploadedFile of uploadedLargeFiles) {
+        try {
+          await discardLargeProductFile(uploadedFile.key);
+        } catch (cleanupError) {
+          console.error(`Impossible de supprimer le fichier temporaire ${uploadedFile.name}:`, cleanupError);
+        }
+      }
       toast({
         variant: "destructive",
         title: "Création impossible",
         description: error instanceof Error ? error.message : "Réessayez dans un instant.",
       });
     } finally {
+      setFileProgress(null);
       setSubmitting(false);
     }
   };
@@ -386,7 +477,14 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="product-type">Type *</Label>
-              <Select value={type} onValueChange={(value) => setType(value as ProductType)}>
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  const nextType = value as ProductType;
+                  setType(nextType);
+                  if (nextType !== "DIGITAL") setFiles([]);
+                }}
+              >
                 <SelectTrigger id="product-type" className="h-11 w-full">
                   <SelectValue placeholder="Choisir un type" />
                 </SelectTrigger>
@@ -447,25 +545,116 @@ function ProductCreateForm({ onCreated }: { onCreated: () => void }) {
             )}
           </div>
 
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="product-sale-price">Prix promotionnel (FCFA, facultatif)</Label>
+              <Input
+                id="product-sale-price"
+                type="number"
+                min={0}
+                step={100}
+                value={salePrice}
+                onChange={(event) => setSalePrice(event.target.value)}
+                className="h-11"
+                placeholder="Ex. 3 500"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="product-button-label">Texte du bouton d&apos;achat</Label>
+              <Select value={purchaseLabel} onValueChange={setPurchaseLabel}>
+                <SelectTrigger id="product-button-label" className="h-11 w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_PURCHASE_LABELS.map((label) => (
+                    <SelectItem key={label} value={label}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="product-sale-start">Début de la promotion (facultatif)</Label>
+              <Input id="product-sale-start" type="datetime-local" value={saleStartsAt} onChange={(event) => setSaleStartsAt(event.target.value)} className="h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="product-sale-end">Fin de la promotion (facultatif)</Label>
+              <Input id="product-sale-end" type="datetime-local" value={saleEndsAt} onChange={(event) => setSaleEndsAt(event.target.value)} className="h-11" />
+            </div>
+          </div>
+
+          <div className="space-y-3 rounded-xl border p-4">
+            <div>
+              <p className="font-medium">Affiliation</p>
+              <p className="text-xs text-muted-foreground">Autorisez les membres à promouvoir ce produit contre une commission que vous financez.</p>
+            </div>
+            <div className="grid gap-4 rounded-xl border p-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="product-promo-code">Code promotionnel (facultatif)</Label>
+                <Input id="product-promo-code" maxLength={40} value={promoCode} onChange={(event) => setPromoCode(event.target.value.toUpperCase())} placeholder="EXEMPLE10" className="h-11 uppercase" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-promo-discount">Réduction du code (%)</Label>
+                <Input id="product-promo-discount" type="number" min={1} max={90} value={promoDiscountPercent} onChange={(event) => setPromoDiscountPercent(event.target.value)} className="h-11" disabled={!promoCode.trim()} />
+              </div>
+            </div>
+            <div className="grid gap-4 rounded-xl border p-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="product-promo-start">Début du code</Label>
+                <Input id="product-promo-start" type="datetime-local" value={promoStartsAt} onChange={(event) => setPromoStartsAt(event.target.value)} className="h-11" disabled={!promoCode.trim()} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-promo-end">Fin du code</Label>
+                <Input id="product-promo-end" type="datetime-local" value={promoEndsAt} onChange={(event) => setPromoEndsAt(event.target.value)} className="h-11" disabled={!promoCode.trim()} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-promo-uses">Nombre max. d&apos;utilisations</Label>
+                <Input id="product-promo-uses" type="number" min={1} max={1000000} value={promoMaxUses} onChange={(event) => setPromoMaxUses(event.target.value)} className="h-11" disabled={!promoCode.trim()} placeholder="Illimité" />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="product-affiliate-percent">Commission affilié (%)</Label>
+                <Input id="product-affiliate-percent" type="number" min={1} max={50} value={affiliatePercent} onChange={(event) => setAffiliatePercent(event.target.value)} className="h-11" />
+              </div>
+              <div className="flex items-center justify-between gap-4 rounded-lg bg-muted/50 p-3">
+                <Label htmlFor="product-affiliate-enabled" className="cursor-pointer">Autoriser l&apos;affiliation</Label>
+                <Switch id="product-affiliate-enabled" checked={affiliateEnabled} onCheckedChange={setAffiliateEnabled} />
+              </div>
+            </div>
+          </div>
+
           {type === "DIGITAL" && (
             <div className="space-y-2">
-              <Label htmlFor="product-file">Fichier numérique (max {MAX_FILE_SIZE_MB} Mo)</Label>
+              <Label htmlFor="product-file">Fichiers à livrer (jusqu&apos;à {MAX_PRODUCT_FILES}, {PRODUCT_FILE_MAX_GB} Go chacun)</Label>
               <Input
                 id="product-file"
                 type="file"
                 accept={DIGITAL_ACCEPT}
-                onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
+                multiple
+                onChange={(e) => handleFilesChange(e.target.files)}
                 className="h-11 file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:text-sm file:text-primary-foreground"
               />
-              {file ? (
-                <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Paperclip className="size-3.5" aria-hidden="true" />
-                  {file.name} · {formatBytes(file.size)}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  Formats acceptés : PDF, ZIP, MP3, MP4, APK, EPUB.
-                </p>
+              <p className="text-xs text-muted-foreground">Formats acceptés : PDF, ZIP, MP3, MP4, APK, EPUB. Les fichiers sont envoyés directement vers le stockage sécurisé.</p>
+              {files.length > 0 && (
+                <ul className="space-y-2">
+                  {files.map((selectedFile) => (
+                    <li key={`${selectedFile.name}-${selectedFile.size}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2 text-xs">
+                      <span className="min-w-0 truncate">{selectedFile.name}</span>
+                      <span className="shrink-0 text-muted-foreground">{formatBytes(selectedFile.size)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {fileProgress && (
+                <div className="space-y-1" aria-live="polite">
+                  <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="truncate">Envoi de {fileProgress.name}</span>
+                    <span>{fileProgress.percent} %</span>
+                  </div>
+                  <progress className="h-2 w-full accent-primary" max={100} value={fileProgress.percent} />
+                </div>
               )}
             </div>
           )}
@@ -533,6 +722,12 @@ function ProductEditForm({
   const [description, setDescription] = useState(product.description ?? "");
   const [category, setCategory] = useState<string>(product.category);
   const [price, setPrice] = useState(String(product.priceXOF));
+  const [salePrice, setSalePrice] = useState(product.salePriceXOF == null ? "" : String(product.salePriceXOF));
+  const [saleStartsAt, setSaleStartsAt] = useState(dateToLocalInput(product.saleStartsAt));
+  const [saleEndsAt, setSaleEndsAt] = useState(dateToLocalInput(product.saleEndsAt));
+  const [purchaseLabel, setPurchaseLabel] = useState(product.purchaseLabel ?? "Acheter maintenant");
+  const [affiliateEnabled, setAffiliateEnabled] = useState(product.affiliateEnabled ?? true);
+  const [affiliatePercent, setAffiliatePercent] = useState(String(product.affiliatePercent ?? 10));
   const [stock, setStock] = useState(product.stock === null ? "" : String(product.stock));
   const [status, setStatus] = useState<ProductStatus>(product.status);
   const [submitting, setSubmitting] = useState(false);
@@ -541,6 +736,14 @@ function ProductEditForm({
     const priceProblem = priceError(price);
     if (priceProblem) {
       toast({ variant: "destructive", title: "Prix invalide", description: priceProblem });
+      return;
+    }
+    if (salePrice.trim() && (priceError(salePrice) || Number(salePrice) >= Number(price))) {
+      toast({ variant: "destructive", title: "Prix promotionnel invalide", description: "Le prix promotionnel doit être inférieur au prix normal." });
+      return;
+    }
+    if (saleStartsAt && saleEndsAt && new Date(saleEndsAt) <= new Date(saleStartsAt)) {
+      toast({ variant: "destructive", title: "Période invalide", description: "La fin de promotion doit être après son début." });
       return;
     }
     if (product.type === "PHYSICAL" && status === "PUBLISHED" && stock.trim() === "") {
@@ -559,6 +762,12 @@ function ProductEditForm({
         description: description.trim(),
         category,
         priceXOF: Number(price),
+        salePriceXOF: salePrice.trim() ? Number(salePrice) : null,
+        saleStartsAt: saleStartsAt ? new Date(saleStartsAt).toISOString() : null,
+        saleEndsAt: saleEndsAt ? new Date(saleEndsAt).toISOString() : null,
+        purchaseLabel,
+        affiliateEnabled,
+        affiliatePercent: Number(affiliatePercent),
         status,
       };
       if (product.type === "PHYSICAL") body.stock = Number(stock || "0");
@@ -588,9 +797,20 @@ function ProductEditForm({
         <div className="rounded-lg border bg-muted/40 p-3 text-sm">
           <p className="flex items-center gap-2 font-medium">
             <Paperclip className="size-4 text-primary" aria-hidden="true" />
-            {product.fileName ? product.fileName : "Aucun fichier numérique"}
+            {product.files?.length
+              ? `${product.files.length} fichier(s) numérique(s)`
+              : product.fileName ?? "Aucun fichier numérique"}
           </p>
-          {product.fileSize ? (
+          {product.files?.length ? (
+            <ul className="mt-2 space-y-1">
+              {product.files.map((file) => (
+                <li key={file.id} className="flex justify-between gap-3 text-xs text-muted-foreground">
+                  <span className="truncate">{file.name}</span>
+                  <span className="shrink-0">{formatBytes(file.size)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : product.fileSize ? (
             <p className="mt-1 text-xs text-muted-foreground">Taille : {formatBytes(product.fileSize)}</p>
           ) : null}
         </div>
@@ -655,6 +875,42 @@ function ProductEditForm({
                 onChange={(e) => setPrice(e.target.value)}
                 className="h-11"
               />
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-sale-price">Prix promotionnel (FCFA, facultatif)</Label>
+              <Input id="edit-sale-price" type="number" min={0} step={100} value={salePrice} onChange={(event) => setSalePrice(event.target.value)} className="h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-button-label">Texte du bouton</Label>
+              <Select value={purchaseLabel} onValueChange={setPurchaseLabel}>
+                <SelectTrigger id="edit-button-label" className="h-11 w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PRODUCT_PURCHASE_LABELS.map((label) => <SelectItem key={label} value={label}>{label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-sale-start">Début de promotion</Label>
+              <Input id="edit-sale-start" type="datetime-local" value={saleStartsAt} onChange={(event) => setSaleStartsAt(event.target.value)} className="h-11" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-sale-end">Fin de promotion</Label>
+              <Input id="edit-sale-end" type="datetime-local" value={saleEndsAt} onChange={(event) => setSaleEndsAt(event.target.value)} className="h-11" />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-affiliate-percent">Commission affilié (%)</Label>
+              <Input id="edit-affiliate-percent" type="number" min={1} max={50} value={affiliatePercent} onChange={(event) => setAffiliatePercent(event.target.value)} className="h-11" />
+            </div>
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+              <Label htmlFor="edit-affiliate-enabled">Autoriser l&apos;affiliation</Label>
+              <Switch id="edit-affiliate-enabled" checked={affiliateEnabled} onCheckedChange={setAffiliateEnabled} />
             </div>
           </div>
 

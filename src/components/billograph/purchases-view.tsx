@@ -49,7 +49,7 @@ export function PurchasesView() {
         <h1 className="mt-5 text-3xl font-bold tracking-tight">Mes achats</h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
           Saisissez l&apos;email utilisé lors de votre commande pour retrouver vos fichiers
-          numériques. Les liens sont valables 30 jours, 5 téléchargements maximum.
+          numériques. Chaque lien est valable 30 jours et permet jusqu&apos;à 5 téléchargements par fichier.
         </p>
       </div>
 
@@ -142,14 +142,23 @@ export function PurchasesView() {
                           )}
                         </div>
                         {item.download ? (
-                          <a
-                            href={`/api/downloads?token=${item.download.token}`}
-                            download
-                            className={cn(buttonVariants({ size: "sm" }), "h-9")}
-                          >
-                            <Download className="size-4" aria-hidden="true" />
-                            Télécharger
-                          </a>
+                          <ul className="w-full space-y-2 border-t pt-3">
+                            {item.download.files.map((file, fileIndex) => (
+                              <li key={file.id ?? fileIndex} className="flex items-center justify-between gap-3">
+                                <span className="min-w-0 truncate text-xs text-muted-foreground">
+                                  {file.name}{file.size ? ` · ${Math.round(file.size / (1024 * 1024))} Mo` : ""}
+                                  {` · ${Math.max(0, file.maxDownloads - file.downloadCount)} téléchargement(s) restant(s)`}
+                                </span>
+                                <a
+                                  href={`/api/downloads?token=${item.download!.token}${file.id ? `&fileId=${encodeURIComponent(file.id)}` : ""}`}
+                                  className={cn(buttonVariants({ size: "sm" }), "h-9")}
+                                >
+                                  <Download className="size-4" aria-hidden="true" />
+                                  Télécharger
+                                </a>
+                              </li>
+                            ))}
+                          </ul>
                         ) : null}
                       </div>
                     ))}

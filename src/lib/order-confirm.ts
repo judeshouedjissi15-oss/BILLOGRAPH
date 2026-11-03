@@ -39,7 +39,7 @@ type TxClient = Prisma.TransactionClient;
 function loadOrder(client: TxClient, reference: string) {
   return client.order.findUnique({
     where: { reference },
-    include: { payment: true, items: { include: { product: true } } },
+    include: { payment: true, items: { include: { product: { include: { files: true } } } } },
   });
 }
 
@@ -180,7 +180,8 @@ export async function confirmOrderPayment(params: {
       })
       .catch(() => null);
     if (store) {
-      const netXOF = result.order.totalXOF - result.order.commissionXOF;
+      const netXOF =
+        result.order.totalXOF - result.order.commissionXOF - result.order.affiliateCommissionXOF;
       const isFree = result.order.totalXOF === 0;
       await createNotification({
         userId: store.ownerId,

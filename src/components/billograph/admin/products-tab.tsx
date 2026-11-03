@@ -6,7 +6,7 @@
 // GET /api/admin/products?status=&storeId=&q=&limit=
 
 import { useCallback, useEffect, useState } from "react";
-import { PackageSearch, Eye } from "lucide-react";
+import { PackageSearch, Eye, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,7 @@ import { StatusBadge } from "../status-badge";
 import { formatDate, formatXOF, productStatusLabel } from "@/lib/format";
 import { PRODUCT_STATUSES } from "@/lib/constants";
 import type { AdminProduct, AdminStore } from "@/types/api";
+import { AdminProductCreateForm } from "../vendor/product-form-page";
 
 export function ProductsTab() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -40,6 +41,7 @@ export function ProductsTab() {
   const [stores, setStores] = useState<AdminStore[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [createStoreId, setCreateStoreId] = useState("");
 
   const load = useCallback(async () => {
     setError(null);
@@ -74,6 +76,27 @@ export function ProductsTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button type="button" onClick={() => setCreateStoreId((current) => current ? "" : stores[0]?.id ?? "")} disabled={stores.length === 0}>
+          <Plus className="size-4" aria-hidden="true" /> Créer un produit
+        </Button>
+      </div>
+      {createStoreId && (
+        <Card>
+          <CardContent className="space-y-4 p-5">
+            <div className="space-y-2">
+              <Label htmlFor="admin-product-store">Boutique de destination</Label>
+              <Select value={createStoreId} onValueChange={setCreateStoreId}>
+                <SelectTrigger id="admin-product-store"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {stores.map((store) => <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <AdminProductCreateForm storeId={createStoreId} onCreated={() => { setCreateStoreId(""); void load(); }} />
+          </CardContent>
+        </Card>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor="admin-products-status">Statut</Label>

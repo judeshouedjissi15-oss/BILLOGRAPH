@@ -22,7 +22,10 @@ export async function GET(req: Request) {
         customer: { email: parsed.data },
         status: { in: ["PAID", "DELIVERED"] },
       },
-      include: { items: { include: { product: true } }, downloadTokens: true },
+      include: {
+        items: { include: { product: { include: { files: { orderBy: { position: "asc" } } } } } },
+        downloadTokens: { include: { fileDownloads: true } },
+      },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
@@ -48,6 +51,25 @@ export async function GET(req: Request) {
                     expiresAt: token.expiresAt,
                     downloadCount: token.downloadCount,
                     maxDownloads: token.maxDownloads,
+                    files: i.product
+                      ? i.product.files.length
+                        ? i.product.files.map((file) => ({
+                            id: file.id,
+                            name: file.fileName,
+                            size: Number(file.fileSize),
+                            downloadCount: token.fileDownloads.find((download) => download.productFileId === file.id)?.downloadCount ?? 0,
+                            maxDownloads: token.maxDownloads,
+                          }))
+                        : i.product.fileKey
+                          ? [{
+                              id: null,
+                              name: i.product.fileName ?? "Fichier à télécharger",
+                              size: i.product.fileSize,
+                              downloadCount: token.downloadCount,
+                              maxDownloads: token.maxDownloads,
+                            }]
+                          : []
+                      : [],
                   }
                 : null,
             };

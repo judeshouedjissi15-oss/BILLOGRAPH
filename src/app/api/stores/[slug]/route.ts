@@ -8,6 +8,7 @@ import { HttpError, requireUser } from "@/lib/auth";
 import { handleApiError, jsonOk, readJson } from "@/lib/api";
 import { storeCreateSchema } from "@/lib/validation";
 import { logAudit } from "@/lib/audit";
+import { parseStoreFaqs } from "@/lib/store-faq";
 
 // Vues JSON conformes à API_CONTRACTS.md — ne jamais exposer fileKey / passwordHash.
 function storeView(store: Store) {
@@ -18,6 +19,10 @@ function storeView(store: Store) {
     description: store.description,
     color: store.color,
     phone: store.phone,
+    faqs: parseStoreFaqs(store.faqs),
+    deliveryInfo: store.deliveryInfo,
+    returnPolicy: store.returnPolicy,
+    trustMessage: store.trustMessage,
     status: store.status,
     createdAt: store.createdAt,
   };
@@ -32,6 +37,10 @@ function publicProductView(p: Product) {
     type: p.type,
     category: p.category,
     priceXOF: p.priceXOF,
+    salePriceXOF: p.salePriceXOF,
+    saleStartsAt: p.saleStartsAt,
+    saleEndsAt: p.saleEndsAt,
+    purchaseLabel: p.purchaseLabel,
     imageUrl: p.imageUrl,
     hasFile: Boolean(p.fileKey),
     stock: p.stock,
@@ -82,6 +91,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sl
         description: data.description,
         color: data.color,
         phone: data.phone,
+        faqs: data.faqs === undefined ? undefined : JSON.stringify(data.faqs),
+        deliveryInfo: data.deliveryInfo,
+        returnPolicy: data.returnPolicy,
+        trustMessage: data.trustMessage,
       },
     });
 

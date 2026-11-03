@@ -13,6 +13,7 @@ export type HashRouteName =
   | "produit"
   | "commande"
   | "purchases"
+  | "affiliates"
   | "admin"
   | "professionnel"
   | "profil"
@@ -74,6 +75,8 @@ export function parseHash(rawHash: string): HashRoute {
       return param ? { name: "commande", param } : { name: "not-found", param: null };
     case "mes-achats":
       return { name: "purchases", param: null };
+    case "affiliations":
+      return { name: "affiliates", param: null };
     case "admin":
       return { name: "admin", param: null };
     case "professionnel":

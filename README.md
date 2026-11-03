@@ -37,15 +37,15 @@ exécutez `bun run db:migrate:deploy`. Le build Vercel génère le client Prisma
 les migrations sont une étape séparée et ne doivent pas être exécutées avec
 `db:push --accept-data-loss` sur une base de production.
 
-Les fichiers envoyés sont stockés localement en développement et dans un store
-**Vercel Blob privé** sur Vercel. Créez le store dans l'onglet Storage du projet,
-choisissez l'accès privé et liez-le aux environnements Preview et Production.
-L'authentification OIDC de Vercel est utilisée automatiquement ; pour tester les
-uploads en local, récupérez `BLOB_READ_WRITE_TOKEN` avec `vercel env pull`.
-Les fichiers produit et avatar sont téléversés directement du navigateur vers
-Blob via des URL signées privées à durée courte ; le jeton lecture/écriture
-n'est jamais envoyé au navigateur. Les API vérifient ensuite la propriété,
-la taille et le type du fichier avant de l'associer au compte ou au produit.
+Les fichiers numériques de produit utilisent **Cloudflare R2** (stockage privé)
+et des téléversements multipart directs depuis le navigateur, jusqu'à 50 Go par
+fichier et 20 fichiers par produit. Configurez `R2_ACCOUNT_ID`,
+`R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` et `R2_BUCKET_NAME` en Production,
+Preview et local. Dans la configuration CORS du bucket, autorisez l'origine de
+l'application, la méthode `PUT` et exposez l'en-tête `ETag`. Les liens de
+téléchargement après paiement sont signés et temporaires ; aucun fichier de
+50 Go ne transite par la mémoire d'une route Next.js. Les images de couverture
+et avatars continuent d'utiliser le stockage Blob privé lorsqu'il est configuré.
 
 ### Compte propriétaire (bootstrap)
 
@@ -81,7 +81,7 @@ Couleurs de marque échantillonnées du logo : bleu `#0049bf` (« BILLO ») et o
 | UI | **Tailwind CSS 4 + shadcn/ui** (New York) | idem | Composants accessibles, cohérents, maintenables ; palette originale vert profond + ambré |
 | Base de données | **PostgreSQL via Prisma** | **PostgreSQL + Prisma** | PostgreSQL hébergé via Neon (intégration Vercel) ; URLs séparées pour les requêtes applicatives et les migrations |
 | Auth | Sessions serveur en base + cookie **httpOnly**, hachage **scrypt** (node:crypto) | + vérification email, 2FA, NextAuth | Zéro dépendance crypto externe ; le hash de session (sha256) n'est jamais stocké en clair ; anti brute-force par rate-limit |
-| Stockage fichiers | **Système de fichiers local** en développement | **Vercel Blob privé** sur Vercel | Les fichiers ne sont jamais exposés directement : les fichiers numériques passent par `/api/downloads?token=…`, les images par `/api/images/`. L'interface `src/lib/storage.ts` isole ce choix |
+| Stockage fichiers | **Cloudflare R2 privé** | **Cloudflare R2 privé** | Upload multipart direct navigateur jusqu'à 50 Go ; liens téléchargements signés après paiement, images par `/api/images/` |
 | Emails transactionnels | **Non implémenté (MVP)** | Resend / Mailjet / SMTP local | Le reçu est affiché à l'écran + historique dans « Mes achats ». Point d'extension : `confirmOrderPayment()` est l'endroit unique où brancher l'envoi d'email |
 | Tâches asynchrones | Aucune (tout transactionnel, à l'échelle MVP) | File de jobs (BullMQ / cron) | Pas de besoin réel tant que le volume est faible ; les webhooks sont traités en ligne avec idempotence |
 | Tests | Vérification manuelle E2E (navigateur) + contrôles API curl | Vitest + Playwright CI | Périmètre MVP — voir § Limites |

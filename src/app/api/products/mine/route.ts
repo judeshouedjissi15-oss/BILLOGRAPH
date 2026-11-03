@@ -13,6 +13,7 @@ export async function GET() {
 
     const products = await db.product.findMany({
       where: { storeId: store.id, deletedAt: null },
+      include: { files: { orderBy: { position: "asc" } } },
       orderBy: { createdAt: "desc" },
     });
 
@@ -26,11 +27,22 @@ export async function GET() {
         type: p.type,
         category: p.category,
         priceXOF: p.priceXOF,
+        salePriceXOF: p.salePriceXOF,
+        saleStartsAt: p.saleStartsAt,
+        saleEndsAt: p.saleEndsAt,
+        purchaseLabel: p.purchaseLabel,
+        affiliateEnabled: p.affiliateEnabled,
+        affiliatePercent: p.affiliatePercent,
         status: p.status,
         imageUrl: p.imageUrl,
         hasFile: Boolean(p.fileKey), // la clé de stockage privée n'est jamais renvoyée
         fileName: p.fileName,
         fileSize: p.fileSize,
+        files: p.files.map((file) => ({
+          id: file.id,
+          name: file.fileName,
+          size: Number(file.fileSize),
+        })),
         stock: p.stock,
         createdAt: p.createdAt,
       })),

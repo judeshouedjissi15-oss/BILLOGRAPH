@@ -35,6 +35,8 @@ type OrdersTabProps = {
 export function OrdersTab({ storeSlug }: OrdersTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [q, setQ] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const debouncedQ = useDebouncedValue(q, 300);
   const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +49,8 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
         apiUrl("/api/orders/mine", {
           status: statusFilter === "all" ? undefined : statusFilter,
           q: debouncedQ.trim() || undefined,
+          from: from || undefined,
+          to: to || undefined,
         }),
       );
       setOrders(data.orders);
@@ -55,7 +59,7 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, debouncedQ]);
+  }, [statusFilter, debouncedQ, from, to]);
 
   useEffect(() => {
     setLoading(true);
@@ -73,7 +77,7 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
   return (
     <div className="space-y-4">
       {/* Filtres */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">
           <Label htmlFor="orders-status">Statut</Label>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -90,7 +94,7 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
             </SelectContent>
           </Select>
         </div>
-        <div className="flex-1 space-y-1.5">
+        <div className="space-y-1.5">
           <Label htmlFor="orders-search">Rechercher</Label>
           <Input
             id="orders-search"
@@ -100,6 +104,14 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
             onChange={(e) => setQ(e.target.value)}
             className="h-11"
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="orders-from">Du</Label>
+          <Input id="orders-from" type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} className="h-11" />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="orders-to">Au</Label>
+          <Input id="orders-to" type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} className="h-11" />
         </div>
         <p className="text-sm text-muted-foreground sm:pb-3">
           {totals.count} commande(s) · {formatXOF(totals.revenue)} encaissé(s)
