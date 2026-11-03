@@ -14,6 +14,7 @@ import { db } from "@/lib/db";
 import type { SessionUser } from "@/lib/auth";
 
 export const AI_NAME = "Rechmial IA";
+export const AI_MODEL = "glm-5.3";
 export const AI_MODEL_MAX_MESSAGE = 2000; // caractères max par message utilisateur
 export const AI_HISTORY_LIMIT = 12; // tours récents renvoyés au modèle
 export const AI_TIMEOUT_MS = 60_000;
@@ -229,13 +230,17 @@ export async function callRechmial(
 ): Promise<string> {
   const zai = await ZAI.create();
   const messages = [
-    { role: "assistant" as const, content: buildSystemPrompt(contextBlock) },
+    { role: "system" as const, content: buildSystemPrompt(contextBlock) },
     ...history.slice(-AI_HISTORY_LIMIT),
     { role: "user" as const, content: userMessage },
   ];
 
   const completion = (await Promise.race([
-    zai.chat.completions.create({ messages, thinking: { type: "disabled" } }),
+    zai.chat.completions.create({
+      model: AI_MODEL,
+      messages,
+      thinking: { type: "disabled" },
+    }),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error("Délai dépassé")), AI_TIMEOUT_MS),
     ),

@@ -99,6 +99,10 @@ export async function POST(req: Request) {
     if (err instanceof Error && err.message === "Délai dépassé") {
       return jsonError(504, "Rechmial IA met trop de temps à répondre. Réessayez dans un instant.");
     }
+    if (err instanceof Error && /Configuration file not found or invalid/i.test(err.message)) {
+      console.error("[rechmial] configuration Z.ai absente ou invalide");
+      return jsonError(503, "Rechmial IA n'est pas configurée. Vérifiez le fichier .z-ai-config.");
+    }
     if (err instanceof Error && /réponse vide|upstream|model/i.test(err.message)) {
       console.error("[rechmial] erreur modèle:", err.message);
       return jsonError(502, "Rechmial IA est momentanément indisponible. Réessayez dans un instant.");
