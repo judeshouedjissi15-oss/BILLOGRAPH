@@ -54,7 +54,7 @@ server.log
 # Skills directory
 /skills/
 # Base de données locale (données réelles — jamais committées)
-db/
+dbmise
 # Captures de vérification E2E et résultats d'outils
 e2e-*.png
 tool-results/
