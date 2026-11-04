@@ -37,13 +37,16 @@ export function AffiliateMarketplaceTab() {
   const { toast } = useToast();
   const [data, setData] = useState<MarketplaceData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       setData(await apiFetch<MarketplaceData>("/api/affiliates/marketplace"));
     } catch (error) {
+      setError(error instanceof Error ? error.message : "Réessayez dans un instant.");
       toast({
         variant: "destructive",
         title: "Marché affilié indisponible",
@@ -93,6 +96,19 @@ export function AffiliateMarketplaceTab() {
 
   if (loading && !data) {
     return <div className="space-y-4" aria-busy="true"><Skeleton className="h-28 rounded-xl" /><Skeleton className="h-64 rounded-xl" /></div>;
+  }
+
+  if (error && !data) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-4 p-10 text-center">
+          <p role="alert" className="text-sm text-destructive">{error}</p>
+          <Button type="button" variant="outline" onClick={() => void load()} disabled={loading}>
+            Réessayer
+          </Button>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (

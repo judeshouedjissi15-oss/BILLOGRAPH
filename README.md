@@ -47,6 +47,16 @@ téléchargement après paiement sont signés et temporaires ; aucun fichier de
 50 Go ne transite par la mémoire d'une route Next.js. Les images de couverture
 et avatars continuent d'utiliser le stockage Blob privé lorsqu'il est configuré.
 
+### Assistant virtuel OpenAI
+
+L'assistant disponible sur toutes les pages répond aux questions générales et
+guide les utilisateurs sur BILLOGRAPH. Pour l'activer, configurez
+`OPENAI_API_KEY` dans les variables d'environnement du serveur (et, si besoin,
+`OPENAI_MODEL`, qui vaut `gpt-4o-mini` par défaut). Ne préfixez jamais la clé par
+`NEXT_PUBLIC_` et ne l'exposez pas dans le navigateur. Sans clé, l'interface
+indique que le service n'est pas encore configuré. L'API limite les requêtes à
+12 messages par adresse IP toutes les 5 minutes.
+
 ### Compte propriétaire (bootstrap)
 
 Le seed crée **uniquement** le compte propriétaire (`hjbilede@05`, rôle ADMIN) : `OWNER_PASSWORD="…" bun prisma/seed.ts` — **aucune valeur par défaut**, refus de création sans variable. Son hash scrypt est stocké en base, jamais le mot de passe. Vendeurs et clients s'inscrivent eux-mêmes depuis l'interface : aucune donnée de démonstration n'est injectée.

@@ -31,6 +31,7 @@ import { AffiliateMarketplaceTab } from "@/components/billograph/vendor/affiliat
 import { NotFoundView } from "@/components/billograph/not-found";
 import { LoginRequired, PageSkeleton } from "@/components/billograph/fallbacks";
 import { SiteDataProvider } from "@/components/billograph/lib/site-data";
+import { VirtualAssistant } from "@/components/billograph/virtual-assistant";
 
 export default function Home() {
   const route = useHashRoute();
@@ -131,6 +132,7 @@ export default function Home() {
           {renderView()}
         </main>
         <Footer />
+        <VirtualAssistant />
       </div>
     </SiteDataProvider>
   );
