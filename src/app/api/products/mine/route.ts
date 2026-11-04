@@ -6,7 +6,7 @@ import { handleApiError, jsonOk } from "@/lib/api";
 
 export async function GET() {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
 
     const store = await db.store.findFirst({ where: { ownerId: user.id } });
     if (!store) return jsonOk({ products: [] });

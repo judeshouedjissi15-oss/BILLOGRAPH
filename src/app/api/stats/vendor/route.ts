@@ -33,7 +33,7 @@ function zeroStats(nowMs: number) {
 
 export async function GET() {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
 
     const store = await db.store.findFirst({ where: { ownerId: user.id } });
     const nowMs = Date.now();

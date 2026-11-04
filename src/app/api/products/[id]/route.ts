@@ -21,7 +21,7 @@ async function loadOwnedProduct(id: string, user: SessionUser) {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
     const { id } = await params;
     const product = await loadOwnedProduct(id, user);
     if (product.deletedAt) throw new HttpError(404, "Produit introuvable");
@@ -122,7 +122,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
     const { id } = await params;
     const product = await loadOwnedProduct(id, user);
     if (product.deletedAt) {

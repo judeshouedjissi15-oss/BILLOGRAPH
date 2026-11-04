@@ -71,6 +71,7 @@ Audit: `ADMIN_CHALLENGE_STEP_PASSED` / `ADMIN_CHALLENGE_FAILED` / `ADMIN_CHALLEN
 ### GET /api/stores/mine  🔒
 → 200 `{ store | null }`. `store = { id, name, slug, description, color, phone, status, createdAt }`
 Créer une boutique passe automatiquement l'utilisateur au rôle VENDEUR (côté serveur).
+Exception : un compte ADMIN conserve son rôle ADMIN et peut ouvrir son tableau de bord boutique depuis `#/dashboard`.
 
 ### POST /api/stores  🔒
 Body: `{ name, slug?, description?, color?, phone? }` → **201** `{ store }`.
@@ -91,10 +92,10 @@ Body partiel: `{ name?, description?, color?, phone? }` → 200 `{ store }`. Le 
 
 ## PRODUITS
 
-### GET /api/products/mine  🔒 vendeur
+### GET /api/products/mine  🔒 vendeur ou admin propriétaire
 → 200 `{ products }` (tous statuts, avec fileKey masqué: `hasFile` + `fileName` + `fileSize` autorisés).
 
-### POST /api/products  🔒 vendeur — **multipart/form-data**
+### POST /api/products  🔒 vendeur (sa boutique) ou admin (boutique explicite, ou la sienne par défaut) — **multipart/form-data**
 Champs: `title, description?, type(DIGITAL|PHYSICAL), category, priceXOF, status(DRAFT|PUBLISHED), stock?`
 + `file?` (fichier numérique : PDF/ZIP/MP3/MP4/APK… max 25 Mo) + `image?` (image de couverture, max 5 Mo).
 → **201** `{ product }`. Le fichier est stocké hors /public via `saveUpload` (clé en base, jamais renvoyée).
@@ -102,11 +103,11 @@ Champs: `title, description?, type(DIGITAL|PHYSICAL), category, priceXOF, status
 - Produit DIGITAL publié sans fichier → 422 `Ajoutez le fichier numérique avant publication`.
 - Audit: `PRODUCT_CREATED`.
 
-### PATCH /api/products/:id  🔒 vendeur propriétaire — **JSON**
+### PATCH /api/products/:id  🔒 vendeur ou admin propriétaire — **JSON**
 Body partiel: mêmes champs texte + `status: DRAFT|PUBLISHED|ARCHIVED`. → 200 `{ product }`.
 Règles identiques (publication digitale exige un fichier ; ARCHIVED masque le produit).
 
-### DELETE /api/products/:id  🔒 vendeur propriétaire
+### DELETE /api/products/:id  🔒 vendeur ou admin propriétaire
 → 200 `{ ok: true }`. Suppression refusée (409) si le produit apparaît dans une commande payée → suggérer ARCHIVED.
 
 ### GET /api/products/slug/:slug  🌐 public
@@ -145,11 +146,11 @@ Logique serveur :
 → 200 `{ order: { reference, status, totalXOF, paymentMethod, createdAt, paidAt, items: [{ titleSnapshot, quantity, unitPriceXOF }], customerEmail } }`
 Utilisé par le polling du client après paiement.
 
-### GET /api/orders/mine  🔒 vendeur — query: `?status=&q=&limit=`
+### GET /api/orders/mine  🔒 vendeur ou admin propriétaire — query: `?status=&q=&limit=`
 → 200 `{ orders: [{ reference, status, totalXOF, commissionXOF, paymentMethod, createdAt, paidAt, customer: { name, email, phone }, items: [{ titleSnapshot, quantity, unitPriceXOF }], downloadTokens: [{ token, expiresAt, downloadCount, maxDownloads }] }] }`
 Tri desc. `q` = recherche reference/email client (insensible à la casse).
 
-### PATCH /api/orders/:reference  🔒 vendeur propriétaire
+### PATCH /api/orders/:reference  🔒 vendeur ou admin propriétaire
 Body: `{ action: "MARK_DELIVERED" | "CANCEL" }` → 200 `{ order }`.
 - MARK_DELIVERED: autorisé si PAID (livraison physique confirmée) → status DELIVERED.
 - CANCEL: autorisé si PENDING → status CANCELLED + **restock** de la quantité.
@@ -276,6 +277,32 @@ Après modération, le frontend invalide « public-reviews » → la page d'accu
 - **Ownership vérifié en base** (userId → store → product), jamais depuis le client.
 - Montants = entiers FCFA. Aucune donnée carte bancaire ne transite ni n'est stockée.
 - Les mots de passe, hash de session et fileKey ne sont jamais renvoyés par les API.
+
+## AFFILIATION & COMMISSIONS
+
+### GET /api/affiliates/marketplace  🔒 utilisateur connecté
+→ `products` ouverts à l'affiliation et `links` propres à l'utilisateur. Une vente n'est comptée qu'après création de la commission suite au paiement confirmé.
+
+### GET /api/affiliates/wallet  🔒 utilisateur connecté
+→ `{ profile, summary: { generatedXOF, pendingXOF, availableXOF, paidXOF }, commissions, withdrawals }`.
+
+### PUT /api/affiliates/wallet  🔒 utilisateur connecté
+Body `{ countryCode?: "BJ", operator: "mtn_open"|"moov"|"sbin", phoneNumber }` → coordonnées Mobile Money enregistrées côté serveur.
+
+### POST /api/affiliates/withdrawals  🔒 utilisateur connecté
+Body `{ amountXOF }` (entier, minimum 2 000 FCFA). Vérifie et réserve les commissions disponibles dans une transaction sérialisable; les retraits en attente ou en traitement ne peuvent pas dépenser deux fois le même solde.
+
+### GET /api/admin/affiliate-withdrawals  🔒 admin/greffier en lecture seule
+→ demandes et agrégats de commissions. Le greffier ne peut pas traiter les retraits.
+
+### POST /api/admin/affiliate-withdrawals/:id  🔒 admin
+Actions `{ action: "payout"|"sync"|"manual"|"manual_paid"|"reject", providerRef?, adminNote? }`.
+- `payout` crée et démarre un Payout FedaPay via le SDK existant; `sync` récupère ensuite le statut réel.
+- Seul le statut FedaPay `sent` valide automatiquement le versement et débloque la mise à jour des commissions.
+- `manual` puis `manual_paid` autorisent le processus temporaire hors plateforme; l'administrateur doit vérifier le transfert et fournir une référence unique. Aucun retrait manuel n'est payé automatiquement.
+- Les opérateurs béninois proposés sont MTN (`mtn_open`), Moov (`moov`) et Celtiis (`sbin`); la disponibilité dépend de l'activation du compte FedaPay.
+
+Les anciennes ventes affiliées conservent leurs montants enregistrés dans `Order`; la migration additive les importe au registre. Leur taux historique, non stocké auparavant, reste inconnu (`ratePercent = 0`). Les nouvelles ventes enregistrent le taux au moment du checkout.
 
 ## PORTEFEUILLE VENDEUR & RETRAITS
 

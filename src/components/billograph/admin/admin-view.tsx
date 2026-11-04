@@ -43,6 +43,7 @@ import { AuditTab } from "./audit-tab";
 import { ReviewsTab } from "./reviews-tab";
 import { SettingsTabWithSmtp } from "./settings-tab";
 import { WithdrawalsTab } from "./withdrawals-tab";
+import { AffiliateWithdrawalsTab } from "./affiliate-withdrawals-tab";
 import { AnnouncementsTab } from "./announcements-tab";
 import { OfficeTab } from "./office-tab";
 import { TrashTab } from "./trash-tab";
@@ -644,6 +645,9 @@ export function AdminView({ user }: AdminViewProps) {
           <TabsTrigger value="withdrawals" className="px-4">
             Retraits
           </TabsTrigger>
+          <TabsTrigger value="affiliate-withdrawals" className="px-4">
+            Retraits affiliés
+          </TabsTrigger>
           <TabsTrigger value="announcements" className="px-4">
             Annonce
           </TabsTrigger>
@@ -692,6 +696,9 @@ export function AdminView({ user }: AdminViewProps) {
         </TabsContent>
         <TabsContent value="withdrawals" className="mt-6">
           <WithdrawalsTab readOnly={readOnly} />
+        </TabsContent>
+        <TabsContent value="affiliate-withdrawals" className="mt-6">
+          <AffiliateWithdrawalsTab readOnly={readOnly} />
         </TabsContent>
         <TabsContent value="announcements" className="mt-6">
           <AnnouncementsTab readOnly={readOnly} />

@@ -86,6 +86,14 @@ export async function confirmOrderPayment(params: {
         where: { id: order.id },
         data: { status: "PAID", paidAt: new Date() },
       });
+      await tx.affiliateCommission.updateMany({
+        where: { orderId: order.id, status: "PENDING" },
+        data: {
+          status: "AVAILABLE",
+          validatedAt: new Date(),
+          availableAt: new Date(),
+        },
+      });
 
       // Jetons de téléchargement : uniquement les articles numériques dont le
       // produit possède réellement un fichier dans le stockage privé.
@@ -113,6 +121,10 @@ export async function confirmOrderPayment(params: {
       await tx.order.update({
         where: { id: order.id },
         data: { status: "FAILED" },
+      });
+      await tx.affiliateCommission.updateMany({
+        where: { orderId: order.id, status: "PENDING" },
+        data: { status: "CANCELLED" },
       });
       // Restock : le stock des produits physiques avait été décrémenté au
       // checkout → on le restitue de la quantité commandée.

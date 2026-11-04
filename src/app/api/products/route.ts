@@ -100,12 +100,12 @@ export async function POST(req: NextRequest) {
       : form
         ? textField(form, "storeId")
         : undefined;
-    // Les vendeurs sont toujours rattachés à leur propre boutique. Les admins
-    // peuvent choisir explicitement une boutique depuis l'espace d'administration.
+    // Un administrateur peut gérer explicitement une boutique depuis
+    // l'administration ou utiliser sa propre boutique sans envoyer storeId.
     const store = user.role === "ADMIN"
       ? typeof requestedStoreId === "string"
         ? await db.store.findUnique({ where: { id: requestedStoreId } })
-        : null
+        : await db.store.findFirst({ where: { ownerId: user.id } })
       : await db.store.findFirst({ where: { ownerId: user.id } });
     if (!store) {
       throw new HttpError(404, "Créez d'abord votre boutique avant d'ajouter des produits");

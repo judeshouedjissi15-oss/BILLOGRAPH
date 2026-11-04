@@ -63,7 +63,7 @@ export async function GET(_req: Request, ctx: RouteContext) {
 
 export async function PATCH(req: Request, ctx: RouteContext) {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
     const { reference } = await ctx.params;
     const body = patchSchema.parse(await readJson(req));
 
@@ -104,6 +104,10 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         where: { id: order.id },
         data: { status: "CANCELLED" },
         include: { items: { include: { product: true } }, customer: true },
+      });
+      await tx.affiliateCommission.updateMany({
+        where: { orderId: order.id, status: "PENDING" },
+        data: { status: "CANCELLED" },
       });
       // Restock des produits physiques (le stock avait été décrémenté au checkout).
       for (const item of cancelled.items) {

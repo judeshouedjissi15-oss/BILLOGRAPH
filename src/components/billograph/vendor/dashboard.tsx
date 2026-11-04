@@ -89,7 +89,7 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
 
   const handleStoreCreated = async (store: Store) => {
     setStoreState({ status: "ready", store });
-    await refreshUser(); // le compte vient d'être promu VENDEUR côté serveur
+    await refreshUser();
   };
 
   if (storeState.status === "loading") {

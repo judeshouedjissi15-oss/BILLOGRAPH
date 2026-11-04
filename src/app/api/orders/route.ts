@@ -248,6 +248,7 @@ export async function POST(req: Request) {
           totalXOF,
           commissionXOF,
           affiliateCommissionXOF,
+          affiliateRatePercent: affiliateLink ? product.affiliatePercent : 0,
           discountXOF,
           affiliateLinkId: affiliateLink?.id ?? null,
           promoCodeId: promo?.id ?? null,
@@ -263,6 +264,17 @@ export async function POST(req: Request) {
           quantity: body.quantity,
         },
       });
+      if (affiliateLink && affiliateCommissionXOF > 0) {
+        await tx.affiliateCommission.create({
+          data: {
+            orderId: order.id,
+            affiliateLinkId: affiliateLink.id,
+            affiliateUserId: affiliateLink.userId,
+            amountXOF: affiliateCommissionXOF,
+            ratePercent: product.affiliatePercent,
+          },
+        });
+      }
       if (promoAvailable && promo) {
         const usage = await tx.promoCode.updateMany({
           where: {

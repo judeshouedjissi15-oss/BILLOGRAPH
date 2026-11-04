@@ -20,9 +20,9 @@ export async function GET() {
           affiliateLinks: {
             where: { userId: user.id },
             include: {
-              orders: {
-                where: { status: { in: ["PAID", "DELIVERED"] } },
-                select: { affiliateCommissionXOF: true },
+              commissions: {
+                where: { status: { in: ["AVAILABLE", "PAID"] } },
+                select: { amountXOF: true },
               },
             },
           },
@@ -34,9 +34,9 @@ export async function GET() {
         where: { userId: user.id },
         include: {
           product: { select: { title: true, slug: true, priceXOF: true } },
-          orders: {
-            where: { status: { in: ["PAID", "DELIVERED"] } },
-            select: { affiliateCommissionXOF: true },
+          commissions: {
+            where: { status: { in: ["AVAILABLE", "PAID"] } },
+            select: { amountXOF: true },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -59,8 +59,8 @@ export async function GET() {
           link: link
             ? {
                 code: link.code,
-                conversions: link.orders.length,
-                earnedXOF: link.orders.reduce((sum, order) => sum + order.affiliateCommissionXOF, 0),
+                conversions: link.commissions.length,
+                earnedXOF: link.commissions.reduce((sum, commission) => sum + commission.amountXOF, 0),
               }
             : null,
         };
@@ -69,8 +69,8 @@ export async function GET() {
         code: link.code,
         createdAt: link.createdAt,
         product: link.product,
-        conversions: link.orders.length,
-        earnedXOF: link.orders.reduce((sum, order) => sum + order.affiliateCommissionXOF, 0),
+        conversions: link.commissions.length,
+        earnedXOF: link.commissions.reduce((sum, commission) => sum + commission.amountXOF, 0),
       })),
     });
   } catch (error) {

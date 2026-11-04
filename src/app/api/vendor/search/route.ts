@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth";
 
 export async function GET(req: Request) {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
 
     const q = (new URL(req.url).searchParams.get("q") ?? "").trim().toLowerCase();
     if (q.length < 2) {

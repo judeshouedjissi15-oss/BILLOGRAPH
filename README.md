@@ -146,11 +146,12 @@ Contrat d'API complet : **`API_CONTRACTS.md`** (shapes exactes, codes d'erreur, 
 
 ### Parcours vendeur
 - **Inscription avec confirmation d'email réelle** : à l'inscription, un email RÉEL part automatiquement (SMTP configuré par l'admin, mot de passe chiffré AES-256-GCM). La CONNEXION RESTE BLOQUÉE tant que l'adresse n'est pas confirmée via le lien reçu (`#/verifier-email/{jeton}`, valable 24 h, usage unique). Panneau dédié sur la page de connexion avec renvoi d'email (anti-énumération, rate-limit 3/10 min). Sans SMTP configuré, l'inscription répond 503 avec un message clair (aucun compte impossible à confirmer).
-- Création guidée de boutique (nom, slug unique, description, couleur, téléphone) — rôle promu `VENDEUR` côté serveur.
+- Création guidée de boutique (nom, slug unique, description, couleur, téléphone) — rôle promu `VENDEUR` côté serveur; un compte `ADMIN` conserve son rôle et garde accès à l'administration.
 - Produits : création **multipart** (fichier numérique ≤ 25 Mo, image de couverture ≤ 5 Mo), brouillon/publié/archivé, suppression contrôlée (refusée si commandes liées), garde-fous de publication (PDF requis pour un digital, stock requis pour un physique).
 - Commandes : liste filtrable/recherchable, détail, commission, liens de téléchargement, marquage « Livrée », annulation avec **restock**.
 - Tableau de bord : revenus totaux / 30 jours, commandes payées, **solde net de commission**, graphique 30 jours, top produits, dernières commandes. Calculs basés **uniquement** sur les commandes payées/livrées.
 - **Portefeuille vendeur** (onglet dédié) : solde disponible, revenus nets, commissions plateforme, retraits en cours/versés ; **demande de retrait** (Mobile Money ou virement, minimum 2 000 FCFA, montant bloqué jusqu'à décision, re-vérification du solde dans la transaction anti double-dépense).
+- **Programme d'affiliation** : marché de produits, attribution par lien, commissions idempotentes libérées uniquement après confirmation serveur du paiement, portefeuille, coordonnées Mobile Money et demandes de retrait réservées contre le double-dépense.
 
 ### Parcours administrateur
 - Accès **fusionné et masqué** : le propriétaire se connecte sur la page de connexion utilisateur standard (#/auth) — aucun élément admin n'y est visible. Après reconnaissance de ses identifiants, le serveur exige une **VÉRIFICATION DE SÉCURITÉ à deux codes secrets** (étape 1 puis étape 2, vérification 100 % serveur, token rotaté, max 5 tentatives, expiration 10 min). La session ADMIN n'est ouverte qu'après le second code → redirection #/admin. Les autres utilisateurs reçoivent leur session directement et ne voient jamais ce flux.
@@ -158,6 +159,7 @@ Contrat d'API complet : **`API_CONTRACTS.md`** (shapes exactes, codes d'erreur, 
 - **Paramètres = tout le site modifiable** : commission (10 % par défaut, tout compris — frais de paiement inclus), nom du site, badge, titre/sous-titre du héros, titres des sections (fonctionnalités, pour qui, avis), CTA final, texte de pied de page, email/téléphone/WhatsApp de contact, réseaux sociaux (Facebook, Instagram, TikTok, YouTube, X), mode de publication des avis, configuration FedaPay. Un champ vide = retour à la valeur par défaut.
 - **Emails réels (SMTP)** : carte « Emails réels — configuration SMTP » dans Paramètres — serveur, port, SSL/TLS, utilisateur, mot de passe (CHIFFRÉ AES-256-GCM via `APP_SECRET`, jamais renvoyé ni journalisé), expéditeur, URL publique du site (liens des emails) + **envoi d'un email de test réel** pour valider la configuration. Sans cette configuration, les inscriptions sont en attente (503) et les comptes propriétaires restent accessibles (pré-confirmés).
 - **Synchronisation automatique** : chaque enregistrement invalide la requête partagée « site-settings » (TanStack Query) → la page d'accueil, le header et le footer se mettent à jour INSTANTANÉMENT pour l'admin, et en ~15 s maximum pour les autres visiteurs (polling + revalidation au focus), sans aucun rechargement.
+- Les comptes `ADMIN` peuvent ouvrir leur boutique dans `#/dashboard` sans perdre leurs privilèges; les produits, commandes, statistiques et portefeuilles vendeur restent bornés à leur boutique.
 
 ### Avis de la communauté
 - Les visiteurs (connectés ou non) déposent un avis depuis la page d'accueil : nom, profession, ville, note 1-5 étoiles, texte (600 car. max) — formulaire EN PAGE (aucun dialog), rate-limit anti-spam (5/10 min/IP).
@@ -214,6 +216,12 @@ Les paiements sont **réels** et passent par **FedaPay** (fedapay.com), agrégat
 
 Alternative DevOps : les variables d'environnement `FEDAPAY_SECRET_KEY`, `FEDAPAY_WEBHOOK_SECRET`, `FEDAPAY_ENVIRONMENT` (voir `.env`) **priment** sur la configuration admin.
 
+### Versements de commissions affiliées
+- Les retraits sont approuvés depuis Admin → Retraits affiliés. Le serveur utilise le SDK officiel `fedapay` et les mêmes clés/configuration de paiement que les encaissements.
+- Les méthodes béninoises proposées sont MTN (`mtn_open`), Moov (`moov`) et Celtiis (`sbin`); la disponibilité des Payouts et de Celtiis dépend de l'activation par FedaPay et ne peut pas être déduite des clés présentes.
+- Le backend crée le payout, l'envoie puis récupère son état; seul `sent` marque le retrait payé. Si les Payouts ne sont pas activés, l'admin peut traiter le transfert dans son dashboard FedaPay puis saisir une référence vérifiée. Aucune demande manuelle n'est marquée payée automatiquement.
+- Les anciennes ventes affiliées sont importées avec leurs montants historiques, mais leur taux n'ayant pas été enregistré avant cette migration, il reste inconnu; les nouvelles ventes figent le taux au checkout.
+
 ### Coûts & conditions (à vérifier chez FedaPay avant mise en production)
 - Compte marchand + KYC (pièce d'identité, IFU/RCCM pour une entreprise) pour le mode Live.
 - Frais par transaction (paris régionales ~2-3 % + plafond de frais) ; versements sur Mobile Money ou banque.
@@ -230,7 +238,7 @@ Alternative DevOps : les variables d'environnement `FEDAPAY_SECRET_KEY`, `FEDAPA
 - Confirmation d'adresse email et récupération de mot de passe par lien à usage unique implémentées (la récupération admin reste manuelle afin de préserver le challenge à deux codes).
 - Produits physiques : pas de variantes (taille/couleur) ni frais de livraison configurables — stock simple + suivi manuel (« Livrée »).
 - Récupération d'achats par email seul (sans compte) : pratique pour le MVP, à renforcer (code d'accès) avant production.
-- Reversements vendeurs (payouts) non implémentés : le « solde disponible » est un calcul net de commission, pas un virement.
+- Reversements vendeurs (distincts des commissions affiliées) toujours manuels : le « solde disponible » vendeur est un calcul net de commission, pas un virement automatique.
 - Tests automatisés absents (vérification E2E manuelle documentée).
 - Messagerie MVP : polling (pas de temps réel instantané), pas de chiffrement de bout en bout, de groupes ni de pièces jointes; la purge de conservation s'exécute à la demande lorsque les membres utilisent la messagerie, pas via un ordonnanceur dédié.
 - Abonnements/coupons : hors périmètre (schéma prêt à accueillir `Subscription`/`Coupon`).

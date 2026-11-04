@@ -9,7 +9,7 @@ import { ORDER_STATUSES } from "@/lib/constants";
 
 export async function GET(req: Request) {
   try {
-    const user = await requireRole("VENDEUR");
+    const user = await requireRole("VENDEUR", "ADMIN");
 
     const url = new URL(req.url);
     const status = url.searchParams.get("status");

@@ -1,5 +1,5 @@
 // POST /api/stores — Création de la boutique de l'utilisateur connecté.
-// Transaction Prisma : création du store + passage automatique au rôle VENDEUR.
+// Transaction Prisma : création du store + passage au rôle VENDEUR pour les comptes clients.
 // Un seul store par propriétaire (409) ; slug fourni (409 si pris) ou généré unique.
 import { NextRequest } from "next/server";
 import { Prisma } from "@prisma/client";
@@ -40,8 +40,9 @@ export async function POST(req: NextRequest) {
             phone: data.phone ?? null,
           },
         });
-        // L'utilisateur devient VENDEUR dès la création de sa boutique (côté serveur).
-        await tx.user.update({ where: { id: user.id }, data: { role: "VENDEUR" } });
+        if (user.role !== "ADMIN") {
+          await tx.user.update({ where: { id: user.id }, data: { role: "VENDEUR" } });
+        }
         return created;
       });
     } catch (err) {
