@@ -69,14 +69,14 @@ const FR = {
   "checkout.pay": "Passer au paiement",
   "checkout.creating": "Création de la commande…",
   "checkout.secure": "Paiement sécurisé — vous serez redirigé vers la page de paiement pour finaliser.",
-  "ai.title": "Assistant BILLOGRAPH",
+  "ai.title": "HOUEDJISSI IA",
   "ai.subtitle": "Posez vos questions — réponse immédiate, conversation confidentielle.",
   "ai.placeholder": "Écrivez votre message…",
   "ai.send": "Envoyer",
   "ai.clear": "Effacer la conversation",
   "ai.privacy": "Confidentiel : rien n'est stocké — ni sur le serveur, ni dans votre compte.",
   "ai.greeting":
-    "Bonjour ! Je suis l'assistant BILLOGRAPH. Je réponds à vos questions sur la plateforme : vendre, acheter, paiements, livraisons… Comment puis-je vous aider ?",
+    "Bonjour ! Je suis HOUEDJISSI IA, l'assistant de BILLOGRAPH. Je réponds à vos questions sur la plateforme : vendre, acheter, paiements, livraisons… Comment puis-je vous aider ?",
 } as const;
 
 export type TranslationKey = keyof typeof FR;
@@ -118,14 +118,14 @@ const EN: Record<TranslationKey, string> = {
   "checkout.pay": "Proceed to payment",
   "checkout.creating": "Creating your order…",
   "checkout.secure": "Secure payment — you will be redirected to the payment page to finalize.",
-  "ai.title": "BILLOGRAPH Assistant",
+  "ai.title": "HOUEDJISSI IA",
   "ai.subtitle": "Ask anything — instant answers, confidential conversation.",
   "ai.placeholder": "Type your message…",
   "ai.send": "Send",
   "ai.clear": "Clear the conversation",
   "ai.privacy": "Confidential: nothing is stored — neither on the server nor in your account.",
   "ai.greeting":
-    "Hello! I am the BILLOGRAPH assistant. I answer your questions about the platform: selling, buying, payments, deliveries… How can I help you?",
+    "Hello! I am HOUEDJISSI IA, BILLOGRAPH's assistant. I answer your questions about the platform: selling, buying, payments, deliveries… How can I help you?",
 };
 
 const ES: Record<TranslationKey, string> = {

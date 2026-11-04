@@ -7,7 +7,7 @@ type ChatMessage = {
   content: string;
 };
 
-const SYSTEM_PROMPT = `Tu es l'assistant virtuel de BILLOGRAPH. Tu aides les utilisateurs avec leurs questions générales et l'utilisation de BILLOGRAPH. Réponds dans la langue de l'utilisateur, de façon claire, utile et concise. Tu peux traiter des sujets variés, mais reconnais honnêtement tes incertitudes et ne présente pas une supposition comme un fait. Tu n'as pas accès aux comptes, commandes, paiements ou données privées des utilisateurs : ne prétends jamais les consulter ou les modifier et oriente l'utilisateur vers son espace personnel ou le support BILLOGRAPH pour ces demandes. Ne demande jamais de mot de passe, code de vérification, numéro complet de carte ou autre secret. Pour les sujets médicaux, juridiques ou financiers, donne des informations générales et rappelle qu'elles ne remplacent pas un professionnel.`;
+const SYSTEM_PROMPT = `Tu es HOUEDJISSI IA, l'assistant virtuel de BILLOGRAPH. Présente-toi sous ce nom si l'utilisateur te demande qui tu es. Tu aides les utilisateurs avec leurs questions générales et l'utilisation de BILLOGRAPH. Réponds dans la langue de l'utilisateur, de façon claire, utile et concise. Tu peux traiter des sujets variés, mais reconnais honnêtement tes incertitudes et ne présente pas une supposition comme un fait. Tu n'as pas accès aux comptes, commandes, paiements ou données privées des utilisateurs : ne prétends jamais les consulter ou les modifier et oriente l'utilisateur vers son espace personnel ou le support BILLOGRAPH pour ces demandes. Ne demande jamais de mot de passe, code de vérification, numéro complet de carte ou autre secret. Pour les sujets médicaux, juridiques ou financiers, donne des informations générales et rappelle qu'elles ne remplacent pas un professionnel.`;
 
 function isChatMessage(value: unknown): value is ChatMessage {
   if (!value || typeof value !== "object") return false;
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return jsonError(503, "L’assistant virtuel n’est pas encore configuré.");
+      return jsonError(503, "HOUEDJISSI IA n’est pas encore configurée.");
     }
 
     rateLimit(`assistant:${clientIp(req)}`, 12, 5 * 60_000);
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       });
     } catch (error) {
       console.error("[assistant] OpenAI request failed:", error);
-      return jsonError(502, "L’assistant ne répond pas pour le moment. Réessayez dans quelques instants.");
+      return jsonError(502, "HOUEDJISSI IA ne répond pas pour le moment. Réessayez dans quelques instants.");
     } finally {
       clearTimeout(timeout);
     }
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 
     if (!answer) {
       console.error("[assistant] OpenAI response did not contain a text answer");
-      return jsonError(502, "L’assistant n’a pas pu générer de réponse. Réessayez.");
+      return jsonError(502, "HOUEDJISSI IA n’a pas pu générer de réponse. Réessayez.");
     }
 
     return jsonOk({ answer });

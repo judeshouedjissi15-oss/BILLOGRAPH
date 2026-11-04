@@ -79,10 +79,10 @@ export function VirtualAssistant() {
           type="button"
           size="lg"
           className="fixed bottom-5 right-5 z-40 h-14 rounded-full px-5 shadow-lg"
-          aria-label="Ouvrir l’assistant virtuel"
+          aria-label="Ouvrir HOUEDJISSI IA"
         >
           <MessageCircle className="size-5" aria-hidden="true" />
-          <span className="hidden sm:inline">Aide virtuelle</span>
+          <span className="hidden sm:inline">HOUEDJISSI IA</span>
         </Button>
       </SheetTrigger>
       <SheetContent
@@ -94,7 +94,7 @@ export function VirtualAssistant() {
             <span className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
               <Sparkles className="size-5" aria-hidden="true" />
             </span>
-            Assistant virtuel BILLOGRAPH
+            HOUEDJISSI IA
           </SheetTitle>
           <SheetDescription>
             Posez une question sur BILLOGRAPH ou sur un autre sujet.
@@ -147,7 +147,7 @@ export function VirtualAssistant() {
           {sending && (
             <div className="mr-auto flex items-center gap-2 rounded-2xl rounded-bl-sm bg-muted px-4 py-3 text-sm text-muted-foreground">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              L’assistant réfléchit…
+              HOUEDJISSI IA réfléchit…
             </div>
           )}
           {error && (

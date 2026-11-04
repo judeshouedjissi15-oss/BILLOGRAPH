@@ -47,9 +47,9 @@ téléchargement après paiement sont signés et temporaires ; aucun fichier de
 50 Go ne transite par la mémoire d'une route Next.js. Les images de couverture
 et avatars continuent d'utiliser le stockage Blob privé lorsqu'il est configuré.
 
-### Assistant virtuel OpenAI
+### HOUEDJISSI IA (assistant virtuel OpenAI)
 
-L'assistant disponible sur toutes les pages répond aux questions générales et
+HOUEDJISSI IA, disponible sur toutes les pages, répond aux questions générales et
 guide les utilisateurs sur BILLOGRAPH. Pour l'activer, configurez
 `OPENAI_API_KEY` dans les variables d'environnement du serveur (et, si besoin,
 `OPENAI_MODEL`, qui vaut `gpt-4o-mini` par défaut). Ne préfixez jamais la clé par
