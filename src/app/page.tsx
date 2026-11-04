@@ -12,6 +12,7 @@ import { AnnouncementBar } from "@/components/billograph/announcement-bar";
 import { Landing } from "@/components/billograph/landing";
 import { AuthView } from "@/components/billograph/auth-view";
 import { VendorDashboard } from "@/components/billograph/vendor/dashboard";
+import { ClientDashboard } from "@/components/billograph/client-dashboard";
 import { ProductFormPage } from "@/components/billograph/vendor/product-form-page";
 import { VendorOrderPage } from "@/components/billograph/vendor/order-detail-page";
 import { StoreView } from "@/components/billograph/storefront/store-view";
@@ -53,6 +54,9 @@ export default function Home() {
       case "dashboard":
         if (loading) return <PageSkeleton />;
         if (!user) return <LoginRequired />;
+        if (user.role === "CLIENT" && route.param !== "creer-boutique") {
+          return <ClientDashboard user={user} />;
+        }
         return (
           <VendorDashboard
             user={user}

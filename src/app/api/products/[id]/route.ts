@@ -68,6 +68,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         purchaseLabel: data.purchaseLabel,
         affiliateEnabled: data.affiliateEnabled,
         affiliatePercent: data.affiliatePercent,
+        affiliateInstructions: data.affiliateInstructions,
+        affiliateTerms: data.affiliateTerms,
         status: data.status,
         stock: newType === "DIGITAL" ? null : newStock ?? null, // stock = produits physiques
       },
@@ -106,6 +108,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         purchaseLabel: updated.purchaseLabel,
         affiliateEnabled: updated.affiliateEnabled,
         affiliatePercent: updated.affiliatePercent,
+        affiliateInstructions: updated.affiliateInstructions,
+        affiliateTerms: updated.affiliateTerms,
         status: updated.status,
         imageUrl: updated.imageUrl,
         hasFile: Boolean(updated.fileKey),

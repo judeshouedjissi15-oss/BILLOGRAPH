@@ -5,10 +5,19 @@
 // (Vue d'ensemble, Produits, Commandes, Ma boutique).
 
 import { useCallback, useEffect, useState } from "react";
-import { Store as StoreIcon } from "lucide-react";
+import {
+  Link2,
+  Package,
+  Settings,
+  ShoppingCart,
+  Store as StoreIcon,
+  Wallet,
+  LayoutDashboard,
+  Users,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
@@ -19,7 +28,21 @@ import { OrdersTab } from "./orders-tab";
 import { WalletTab } from "./wallet-tab";
 import { StoreSettingsTab } from "./store-settings-tab";
 import { AffiliateMarketplaceTab } from "./affiliate-marketplace-tab";
+import { AffiliateWalletTab } from "./affiliate-wallet-tab";
+import { AffiliateProgramTab } from "./affiliate-program-tab";
 import type { Store, User } from "@/types/api";
+import { WorkspaceSidebar, type WorkspaceNavItem } from "../workspace-sidebar";
+
+const VENDOR_NAV_ITEMS: WorkspaceNavItem[] = [
+  { value: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
+  { value: "products", label: "Mes produits", icon: Package },
+  { value: "orders", label: "Commandes", icon: ShoppingCart },
+  { value: "wallet", label: "Mes revenus", icon: Wallet },
+  { value: "affiliate-program", label: "Mes affiliés", icon: Users },
+  { value: "affiliates", label: "Marché d'affiliation", icon: Link2 },
+  { value: "affiliate-wallet", label: "Gains d'affiliation", icon: Wallet },
+  { value: "settings", label: "Ma boutique", icon: Settings },
+];
 
 type StoreState =
   | { status: "loading" }
@@ -145,48 +168,36 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
-        <TabsList className="h-11 w-full justify-start overflow-x-auto sm:w-auto">
-          <TabsTrigger value="overview" className="px-4">
-            Vue d&apos;ensemble
-          </TabsTrigger>
-          <TabsTrigger value="products" className="px-4">
-            Produits
-          </TabsTrigger>
-          <TabsTrigger value="orders" className="px-4">
-            Commandes
-          </TabsTrigger>
-          <TabsTrigger value="wallet" className="px-4">
-            Portefeuille
-          </TabsTrigger>
-          <TabsTrigger value="affiliates" className="px-4">
-            Affiliation
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="px-4">
-            Ma boutique
-          </TabsTrigger>
-        </TabsList>
+        <WorkspaceSidebar items={VENDOR_NAV_ITEMS} value={tab} onValueChange={setTab}>
 
-        <TabsContent value="overview" className="mt-6">
+        <TabsContent value="overview" className="mt-0">
           <OverviewTab storeSlug={store.slug} onOpenOrders={() => setTab("orders")} />
         </TabsContent>
-        <TabsContent value="products" className="mt-6">
+        <TabsContent value="products" className="mt-0">
           <ProductsTab storeSlug={store.slug} />
         </TabsContent>
-        <TabsContent value="orders" className="mt-6">
+        <TabsContent value="orders" className="mt-0">
           <OrdersTab storeSlug={store.slug} />
         </TabsContent>
-        <TabsContent value="wallet" className="mt-6">
+        <TabsContent value="wallet" className="mt-0">
           <WalletTab />
         </TabsContent>
-        <TabsContent value="affiliates" className="mt-6">
+        <TabsContent value="affiliate-program" className="mt-0">
+          <AffiliateProgramTab />
+        </TabsContent>
+        <TabsContent value="affiliates" className="mt-0">
           <AffiliateMarketplaceTab />
         </TabsContent>
-        <TabsContent value="settings" className="mt-6">
+        <TabsContent value="affiliate-wallet" className="mt-0">
+          <AffiliateWalletTab />
+        </TabsContent>
+        <TabsContent value="settings" className="mt-0">
           <StoreSettingsTab
             store={store}
             onSaved={(updated) => setStoreState({ status: "ready", store: updated })}
           />
         </TabsContent>
+        </WorkspaceSidebar>
       </Tabs>
     </div>
   );

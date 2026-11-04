@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://billograph-tau.vercel.app"),
   title: "BILLOGRAPH — Vendez vos produits numériques et physiques en Afrique francophone",
   description:
     "BILLOGRAPH est la plateforme e-commerce qui permet aux entrepreneurs du Bénin et d'Afrique francophone de créer leur boutique en ligne et de vendre ebooks, formations, logiciels et produits physiques en FCFA.",

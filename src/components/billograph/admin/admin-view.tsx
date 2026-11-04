@@ -7,18 +7,28 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Banknote,
+  BriefcaseBusiness,
   Copy,
   CreditCard,
+  Link2,
+  LayoutDashboard,
+  Megaphone,
   MessageCircle,
   Info,
   KeyRound,
   Percent,
   Package,
+  ScrollText,
+  Settings,
   ShieldAlert,
   ShieldCheck,
   ShoppingCart,
+  Star,
   Store as StoreIcon,
+  Trash2,
+  UserRoundX,
   Users,
+  Wallet,
   Webhook,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,7 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatCard } from "../stat-card";
@@ -44,6 +54,7 @@ import { ReviewsTab } from "./reviews-tab";
 import { SettingsTabWithSmtp } from "./settings-tab";
 import { WithdrawalsTab } from "./withdrawals-tab";
 import { AffiliateWithdrawalsTab } from "./affiliate-withdrawals-tab";
+import { AffiliateCommissionsTab } from "./affiliate-commissions-tab";
 import { AnnouncementsTab } from "./announcements-tab";
 import { OfficeTab } from "./office-tab";
 import { TrashTab } from "./trash-tab";
@@ -54,6 +65,27 @@ import { DeletionRequestsTab } from "./deletion-requests-tab";
 import { formatDate } from "@/lib/format";
 import type { AdminPaymentsInfo, AdminStats, PlatformSettingsInfo, User } from "@/types/api";
 import { cn } from "@/lib/utils";
+import { WorkspaceSidebar, type WorkspaceNavItem } from "../workspace-sidebar";
+
+const ADMIN_NAV_ITEMS: WorkspaceNavItem[] = [
+  { value: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
+  { value: "users", label: "Utilisateurs", icon: Users },
+  { value: "office", label: "Équipe & Offices", icon: BriefcaseBusiness },
+  { value: "stores", label: "Boutiques", icon: StoreIcon },
+  { value: "products", label: "Produits", icon: Package },
+  { value: "orders", label: "Commandes", icon: ShoppingCart },
+  { value: "reviews", label: "Avis", icon: Star },
+  { value: "message-reports", label: "Signalements", icon: MessageCircle },
+  { value: "messaging", label: "Réglages messagerie", icon: MessageCircle },
+  { value: "deletion-requests", label: "Suppressions", icon: UserRoundX },
+  { value: "withdrawals", label: "Retraits", icon: Wallet },
+  { value: "affiliate-withdrawals", label: "Retraits affiliés", icon: Link2 },
+  { value: "affiliate-commissions", label: "Gestion des commissions", icon: Percent },
+  { value: "announcements", label: "Annonces", icon: Megaphone },
+  { value: "trash", label: "Corbeille", icon: Trash2 },
+  { value: "audit", label: "Journal d'audit", icon: ScrollText },
+  { value: "settings", label: "Paramètres", icon: Settings },
+];
 
 function OverviewTab() {
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -563,6 +595,7 @@ type AdminViewProps = {
 };
 
 export function AdminView({ user }: AdminViewProps) {
+  const [activeTab, setActiveTab] = useState("overview");
   // Garde : rôle ADMIN requis — OU greffier en fonction (directive du
   // propriétaire : « le greffier peut voir tout ce que le super admin peut
   // voir mais il ne peut rien modifier ni rien supprimer »). Le serveur
@@ -607,109 +640,68 @@ export function AdminView({ user }: AdminViewProps) {
         </p>
       </div>
 
-      <Tabs defaultValue="overview" className="mt-6">
-        <TabsList className="h-11 w-full justify-start overflow-x-auto lg:w-auto">
-          <TabsTrigger value="overview" className="px-4">
-            Vue d&apos;ensemble
-          </TabsTrigger>
-          <TabsTrigger value="users" className="px-4">
-            Utilisateurs
-          </TabsTrigger>
-          <TabsTrigger value="office" className="px-4">
-            Équipe &amp; Offices
-          </TabsTrigger>
-          <TabsTrigger value="stores" className="px-4">
-            Boutiques
-          </TabsTrigger>
-          <TabsTrigger value="products" className="px-4">
-            Produits
-          </TabsTrigger>
-          <TabsTrigger value="orders" className="px-4">
-            Commandes
-          </TabsTrigger>
-          <TabsTrigger value="reviews" className="px-4">
-            Avis
-          </TabsTrigger>
-          {!readOnly && (
-            <TabsTrigger value="message-reports" className="px-4">
-              <MessageCircle className="mr-1.5 size-4" aria-hidden="true" />
-              Signalements
-            </TabsTrigger>
-          )}
-          <TabsTrigger value="messaging" className="px-4">
-            Réglages messagerie
-          </TabsTrigger>
-          <TabsTrigger value="deletion-requests" className="px-4">
-            Suppressions de compte
-          </TabsTrigger>
-          <TabsTrigger value="withdrawals" className="px-4">
-            Retraits
-          </TabsTrigger>
-          <TabsTrigger value="affiliate-withdrawals" className="px-4">
-            Retraits affiliés
-          </TabsTrigger>
-          <TabsTrigger value="announcements" className="px-4">
-            Annonce
-          </TabsTrigger>
-          <TabsTrigger value="trash" className="px-4">
-            Corbeille
-          </TabsTrigger>
-          <TabsTrigger value="audit" className="px-4">
-            Audit
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="px-4">
-            Paramètres
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6">
+        <WorkspaceSidebar
+          items={readOnly
+            ? ADMIN_NAV_ITEMS.filter((item) => item.value !== "message-reports" && item.value !== "affiliate-commissions")
+            : ADMIN_NAV_ITEMS}
+          value={activeTab}
+          onValueChange={setActiveTab}
+        >
 
-        <TabsContent value="overview" className="mt-6">
+        <TabsContent value="overview" className="mt-0">
           <OverviewTab />
         </TabsContent>
-        <TabsContent value="users" className="mt-6">
+        <TabsContent value="users" className="mt-0">
           <UsersTab currentUserId={user.id} readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="office" className="mt-6">
+        <TabsContent value="office" className="mt-0">
           <OfficeTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="stores" className="mt-6">
+        <TabsContent value="stores" className="mt-0">
           <StoresTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="products" className="mt-6">
+        <TabsContent value="products" className="mt-0">
           <ProductsTab />
         </TabsContent>
-        <TabsContent value="orders" className="mt-6">
+        <TabsContent value="orders" className="mt-0">
           <OrdersTab />
         </TabsContent>
-        <TabsContent value="reviews" className="mt-6">
+        <TabsContent value="reviews" className="mt-0">
           <ReviewsTab readOnly={readOnly} />
         </TabsContent>
         {!readOnly && (
-          <TabsContent value="message-reports" className="mt-6">
+          <TabsContent value="message-reports" className="mt-0">
             <MessageReportsTab />
           </TabsContent>
         )}
-        <TabsContent value="messaging" className="mt-6">
+        <TabsContent value="messaging" className="mt-0">
           <MessagingControlsTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="deletion-requests" className="mt-6">
+        <TabsContent value="deletion-requests" className="mt-0">
           <DeletionRequestsTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="withdrawals" className="mt-6">
+        <TabsContent value="withdrawals" className="mt-0">
           <WithdrawalsTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="affiliate-withdrawals" className="mt-6">
+        <TabsContent value="affiliate-withdrawals" className="mt-0">
           <AffiliateWithdrawalsTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="announcements" className="mt-6">
+        {!readOnly && (
+          <TabsContent value="affiliate-commissions" className="mt-0">
+            <AffiliateCommissionsTab />
+          </TabsContent>
+        )}
+        <TabsContent value="announcements" className="mt-0">
           <AnnouncementsTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="trash" className="mt-6">
+        <TabsContent value="trash" className="mt-0">
           <TrashTab readOnly={readOnly} />
         </TabsContent>
-        <TabsContent value="audit" className="mt-6">
+        <TabsContent value="audit" className="mt-0">
           <AuditTab />
         </TabsContent>
-        <TabsContent value="settings" className="mt-6 space-y-6">
+        <TabsContent value="settings" className="mt-0 space-y-6">
           <SettingsTabWithSmtp readOnly={readOnly} />
           {readOnly ? (
             <Card>
@@ -726,6 +718,7 @@ export function AdminView({ user }: AdminViewProps) {
           )}
           {!readOnly && <ExportProjectCard />}
         </TabsContent>
+        </WorkspaceSidebar>
       </Tabs>
     </div>
   );

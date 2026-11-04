@@ -51,6 +51,12 @@ export async function POST(req: Request) {
         // impossible") sans jamais considérer la commande comme payée.
         const verification = await provider.verifyTransaction(order.payment.providerRef);
         if (verification.outcome === "SUCCESS" || verification.outcome === "FAILED") {
+          if (
+            verification.outcome === "SUCCESS" &&
+            (verification.amountXOF !== order.totalXOF || verification.currencyIso !== "XOF")
+          ) {
+            throw new HttpError(409, "Le montant ou la devise FedaPay ne correspond pas à la commande.");
+          }
           const { order: confirmed } = await confirmOrderPayment({
             reference: order.reference,
             outcome: verification.outcome,

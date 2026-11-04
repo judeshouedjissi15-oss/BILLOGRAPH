@@ -55,7 +55,12 @@ export interface PaymentProvider {
     callbackUrl: string; // page de retour de la SPA après le checkout FedaPay
   }): Promise<InitiateResult>;
   // Re-vérifie l'état RÉEL d'une transaction auprès de l'API du prestataire.
-  verifyTransaction(providerRef: string): Promise<{ outcome: VerifyOutcome; rawStatus: string }>;
+  verifyTransaction(providerRef: string): Promise<{
+    outcome: VerifyOutcome;
+    rawStatus: string;
+    amountXOF: number | null;
+    currencyIso: string | null;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,15 +316,41 @@ export function createFedapayProvider(config: {
 
       // Parse défensif : { transaction: { status } } ou { entity: { status } }
       // selon les versions de l'API.
-      const obj = data as { transaction?: { status?: unknown }; entity?: { status?: unknown } } | null;
+      const obj = data as {
+        transaction?: {
+          status?: unknown;
+          amount?: unknown;
+          currency?: { iso?: unknown } | string;
+        };
+        entity?: {
+          status?: unknown;
+          amount?: unknown;
+          currency?: { iso?: unknown } | string;
+        };
+      } | null;
+      const transaction = obj?.transaction ?? obj?.entity;
       const rawStatus =
         typeof obj?.transaction?.status === "string"
           ? obj.transaction.status
           : typeof obj?.entity?.status === "string"
             ? obj.entity.status
             : "";
+      const rawAmount = transaction?.amount;
+      const parsedAmount = typeof rawAmount === "number" && Number.isSafeInteger(rawAmount)
+        ? rawAmount
+        : typeof rawAmount === "string" && /^\d+$/.test(rawAmount)
+          ? Number(rawAmount)
+          : null;
+      const amountXOF = parsedAmount !== null && Number.isSafeInteger(parsedAmount) ? parsedAmount : null;
+      const currency = transaction?.currency;
+      const currencyIso =
+        typeof currency === "string"
+          ? currency.toUpperCase()
+          : currency && typeof currency === "object" && typeof currency.iso === "string"
+            ? currency.iso.toUpperCase()
+            : null;
 
-      return { outcome: mapFedapayStatus(rawStatus), rawStatus };
+      return { outcome: mapFedapayStatus(rawStatus), rawStatus, amountXOF, currencyIso };
     },
   };
 }

@@ -214,6 +214,8 @@ export async function POST(req: NextRequest) {
       purchaseLabel: text("purchaseLabel"),
       affiliateEnabled,
       affiliatePercent: number("affiliatePercent", "Le taux d'affiliation"),
+      affiliateInstructions: text("affiliateInstructions"),
+      affiliateTerms: text("affiliateTerms"),
     });
 
     if (data.salePriceXOF !== undefined && data.salePriceXOF !== null &&
@@ -388,6 +390,8 @@ export async function POST(req: NextRequest) {
           purchaseLabel: data.purchaseLabel,
           affiliateEnabled: data.affiliateEnabled,
           affiliatePercent: data.affiliatePercent,
+          affiliateInstructions: data.affiliateInstructions,
+          affiliateTerms: data.affiliateTerms,
           status: data.status,
           imageUrl,
           fileKey,

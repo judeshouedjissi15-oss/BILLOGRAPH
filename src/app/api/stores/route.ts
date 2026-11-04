@@ -43,6 +43,22 @@ export async function POST(req: NextRequest) {
         if (user.role !== "ADMIN") {
           await tx.user.update({ where: { id: user.id }, data: { role: "VENDEUR" } });
         }
+        if (data.onboardingResponses) {
+          await tx.sellerOnboarding.upsert({
+            where: { userId: user.id },
+            create: {
+              userId: user.id,
+              responses: JSON.stringify(data.onboardingResponses),
+              currentStep: 7,
+              completedAt: new Date(),
+            },
+            update: {
+              responses: JSON.stringify(data.onboardingResponses),
+              currentStep: 7,
+              completedAt: new Date(),
+            },
+          });
+        }
         return created;
       });
     } catch (err) {

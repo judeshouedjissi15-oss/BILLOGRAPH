@@ -24,6 +24,7 @@ export async function GET() {
                 where: { status: { in: ["AVAILABLE", "PAID"] } },
                 select: { amountXOF: true },
               },
+              clicks: { select: { clickCount: true, id: true } },
             },
           },
         },
@@ -38,6 +39,7 @@ export async function GET() {
             where: { status: { in: ["AVAILABLE", "PAID"] } },
             select: { amountXOF: true },
           },
+          clicks: { select: { clickCount: true, id: true } },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -50,10 +52,16 @@ export async function GET() {
           id: product.id,
           title: product.title,
           slug: product.slug,
+          description: product.description,
+          category: product.category,
+          imageUrl: product.imageUrl,
+          affiliateInstructions: product.affiliateInstructions,
+          affiliateTerms: product.affiliateTerms,
           priceXOF: product.priceXOF,
           salePriceXOF: product.salePriceXOF,
           saleStartsAt: product.saleStartsAt,
           saleEndsAt: product.saleEndsAt,
+          createdAt: product.createdAt,
           affiliatePercent: product.affiliatePercent,
           store: product.store,
           link: link
@@ -61,6 +69,8 @@ export async function GET() {
                 code: link.code,
                 conversions: link.commissions.length,
                 earnedXOF: link.commissions.reduce((sum, commission) => sum + commission.amountXOF, 0),
+                clicks: link.clicks.reduce((sum, click) => sum + click.clickCount, 0),
+                uniqueVisitors: link.clicks.length,
               }
             : null,
         };
@@ -71,6 +81,8 @@ export async function GET() {
         product: link.product,
         conversions: link.commissions.length,
         earnedXOF: link.commissions.reduce((sum, commission) => sum + commission.amountXOF, 0),
+        clicks: link.clicks.reduce((sum, click) => sum + click.clickCount, 0),
+        uniqueVisitors: link.clicks.length,
       })),
     });
   } catch (error) {

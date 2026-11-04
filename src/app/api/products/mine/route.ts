@@ -33,6 +33,8 @@ export async function GET() {
         purchaseLabel: p.purchaseLabel,
         affiliateEnabled: p.affiliateEnabled,
         affiliatePercent: p.affiliatePercent,
+        affiliateInstructions: p.affiliateInstructions,
+        affiliateTerms: p.affiliateTerms,
         status: p.status,
         imageUrl: p.imageUrl,
         hasFile: Boolean(p.fileKey), // la clé de stockage privée n'est jamais renvoyée

@@ -51,7 +51,7 @@ export function parseHash(rawHash: string): HashRoute {
       // Sous-pages du tableau de bord (vraies pages, pas de dialogues) :
       // #/dashboard/produits · #/dashboard/commandes · #/dashboard/produit/nouveau
       // #/dashboard/produit/{id} · #/dashboard/commande/{reference}
-      if (param === "produits" || param === "commandes") {
+      if (param === "produits" || param === "commandes" || param === "creer-boutique") {
         return { name: "dashboard", param };
       }
       if (param === "produit/nouveau") return { name: "product-new", param: null };

@@ -62,6 +62,12 @@ export async function confirmOrderPayment(params: {
     const order = await loadOrder(tx, reference);
     if (!order || !order.payment) throw new HttpError(404, "Commande introuvable");
     const payment = order.payment;
+    if (payment.provider !== provider) {
+      throw new HttpError(409, "Le prestataire ne correspond pas au paiement enregistré.");
+    }
+    if (provider === "FEDAPAY" && (!providerRef || payment.providerRef !== providerRef)) {
+      throw new HttpError(409, "La transaction FedaPay ne correspond pas au paiement enregistré.");
+    }
 
     // Idempotence : état terminal déjà atteint (payée, échouée, annulée...) →
     // on ne retraite PAS, quel que soit le résultat annoncé.

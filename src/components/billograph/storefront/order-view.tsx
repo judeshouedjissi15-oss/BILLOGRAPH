@@ -17,9 +17,11 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { apiFetch, apiUrl } from "../lib/api-client";
+import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { StatusBadge } from "../status-badge";
 import { formatDate, formatXOF } from "@/lib/format";
@@ -49,6 +51,9 @@ export function OrderView({ reference }: { reference: string }) {
   const [verifying, setVerifying] = useState(false);
   const [pollAttempts, setPollAttempts] = useState(0);
   const [pollExhausted, setPollExhausted] = useState(false);
+  const [downloadEmail, setDownloadEmail] = useState("");
+  const [downloadLookupError, setDownloadLookupError] = useState<string | null>(null);
+  const [lookingUpDownloads, setLookingUpDownloads] = useState(false);
 
   const mountedRef = useRef(true);
   const attemptsRef = useRef(0);
@@ -61,6 +66,34 @@ export function OrderView({ reference }: { reference: string }) {
     };
   }, []);
 
+  const retrieveDownloads = useCallback(async (email: string) => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) return;
+    setLookingUpDownloads(true);
+    setDownloadLookupError(null);
+    try {
+      window.sessionStorage.setItem(`blg:checkout-email:${reference}`, trimmedEmail);
+      const mine = await apiFetch<MyPurchases>("/api/downloads/my", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmedEmail, reference }),
+      });
+      if (mountedRef.current) {
+        setPurchases(mine.orders);
+        if (mine.orders.length === 0) {
+          setDownloadLookupError("Aucun achat numérique trouvé pour cet email et cette référence.");
+        }
+      }
+    } catch (error) {
+      if (mountedRef.current) {
+        setPurchases([]);
+        setDownloadLookupError(error instanceof Error ? error.message : "Recherche impossible.");
+      }
+    } finally {
+      if (mountedRef.current) setLookingUpDownloads(false);
+    }
+  }, [reference]);
+
   const load = useCallback(async (): Promise<PublicOrder | null> => {
     if (!mountedRef.current) return null;
     setRefreshing(true);
@@ -69,16 +102,17 @@ export function OrderView({ reference }: { reference: string }) {
       if (!mountedRef.current) return null;
       setState({ status: "ready", order: data.order });
 
-      // Récupérer les jetons de téléchargement (commandes payées uniquement).
       const order = data.order;
-      if ((order.status === "PAID" || order.status === "DELIVERED") && order.customerEmail) {
+      if (order.status === "PAID" || order.status === "DELIVERED") {
+        let savedEmail = "";
         try {
-          const mine = await apiFetch<MyPurchases>(
-            apiUrl("/api/downloads/my", { email: order.customerEmail }),
-          );
-          if (mountedRef.current) setPurchases(mine.orders);
+          savedEmail = window.sessionStorage.getItem(`blg:checkout-email:${reference}`) ?? "";
         } catch {
-          if (mountedRef.current) setPurchases([]);
+          savedEmail = "";
+        }
+        if (savedEmail) {
+          setDownloadEmail(savedEmail);
+          await retrieveDownloads(savedEmail);
         }
       }
       return order;
@@ -92,7 +126,7 @@ export function OrderView({ reference }: { reference: string }) {
     } finally {
       if (mountedRef.current) setRefreshing(false);
     }
-  }, [reference]);
+  }, [reference, retrieveDownloads]);
 
   // Un cycle de vérification : re-vérification serveur chez FedaPay puis refresh local.
   // Garde anti-concurrence : un cycle manuel et un cycle programmé ne se chevauchent jamais.
@@ -196,6 +230,10 @@ export function OrderView({ reference }: { reference: string }) {
 
   const downloadForItem = (titleSnapshot: string) =>
     myOrder?.items.find((item) => item.title === titleSnapshot)?.download ?? null;
+  const handleDownloadLookup = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void retrieveDownloads(downloadEmail);
+  };
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:py-14">
@@ -330,6 +368,34 @@ export function OrderView({ reference }: { reference: string }) {
               {order.paidAt ? ` · Payée le ${formatDate(order.paidAt)}` : ""}
             </p>
           </section>
+
+          {isPaid && !myOrder && (
+            <form onSubmit={handleDownloadLookup} className="mt-6 space-y-3 rounded-lg border p-4">
+              <div>
+                <h2 className="text-sm font-semibold">Retrouver vos téléchargements</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Indiquez l&apos;email utilisé lors de la commande.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="order-download-email">Adresse email</Label>
+                <Input
+                  id="order-download-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={downloadEmail}
+                  onChange={(event) => setDownloadEmail(event.target.value)}
+                />
+              </div>
+              {downloadLookupError && (
+                <p role="alert" className="text-sm text-destructive">{downloadLookupError}</p>
+              )}
+              <Button type="submit" className="h-10" disabled={lookingUpDownloads}>
+                {lookingUpDownloads ? "Recherche…" : "Afficher mes fichiers"}
+              </Button>
+            </form>
+          )}
 
           {/* Messages contextuels */}
           {isPaid && (

@@ -73,6 +73,8 @@ export type VendorProduct = PublicProduct & {
   fileSize: number | null;
   affiliateEnabled?: boolean;
   affiliatePercent?: number;
+  affiliateInstructions?: string | null;
+  affiliateTerms?: string | null;
   files?: { id: string; name: string; size: number }[];
 };
 
@@ -104,7 +106,6 @@ export type PublicOrder = {
   createdAt: string;
   paidAt: string | null;
   items: OrderItemInfo[];
-  customerEmail?: string;
 };
 
 export type VendorOrder = {

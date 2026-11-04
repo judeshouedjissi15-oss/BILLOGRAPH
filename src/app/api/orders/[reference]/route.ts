@@ -24,7 +24,6 @@ function publicOrder(order: {
   createdAt: Date;
   paidAt: Date | null;
   items: { titleSnapshot: string; quantity: number; unitPriceXOF: number }[];
-  customer: { email: string };
 }) {
   return {
     reference: order.reference,
@@ -38,13 +37,11 @@ function publicOrder(order: {
       quantity: i.quantity,
       unitPriceXOF: i.unitPriceXOF,
     })),
-    customerEmail: order.customer.email,
   };
 }
 
 const orderInclude = {
   items: true,
-  customer: true,
 } as const;
 
 export async function GET(_req: Request, ctx: RouteContext) {

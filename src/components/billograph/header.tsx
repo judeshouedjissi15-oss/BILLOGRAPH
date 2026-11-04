@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   Link2,
   LogOut,
-  Menu,
   MessageCircle,
   ShieldCheck,
   ShoppingBag,
@@ -56,6 +55,26 @@ function initialsOf(name: string): string {
   );
 }
 
+function MenuGridIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="size-5 text-primary"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="5" r="2" />
+      <circle cx="12" cy="5" r="2" />
+      <circle cx="19" cy="5" r="2" />
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+      <circle cx="5" cy="19" r="2" />
+      <circle cx="12" cy="19" r="2" />
+      <circle cx="19" cy="19" r="2" />
+    </svg>
+  );
+}
+
 export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -98,33 +117,25 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
           <Logo />
         </button>
 
-        {/* Navigation desktop */}
-        <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
-          <button type="button" className={navLinkClass(route.name === "home")} onClick={goHome}>
-            Accueil
-          </button>
-          <button type="button" className={navLinkClass(false)} onClick={goToFeatures}>
-            Fonctionnalités
-          </button>
-          <button
-            type="button"
-            className={navLinkClass(route.name === "purchases")}
-            onClick={goPurchases}
-          >
-            <ShoppingBag className="mr-1.5 size-4" aria-hidden="true" />
-            Mes achats
-          </button>
-          {user && (
+        {/* La navigation publique disparaît après connexion; le logo ramène au site public. */}
+        {!user && (
+          <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
+            <button type="button" className={navLinkClass(route.name === "home")} onClick={goHome}>
+              Accueil
+            </button>
+            <button type="button" className={navLinkClass(false)} onClick={goToFeatures}>
+              Fonctionnalités
+            </button>
             <button
               type="button"
-              className={navLinkClass(route.name === "messages")}
-              onClick={goMessages}
+              className={navLinkClass(route.name === "purchases")}
+              onClick={goPurchases}
             >
-              <MessageCircle className="mr-1.5 size-4" aria-hidden="true" />
-              Messages
+              <ShoppingBag className="mr-1.5 size-4" aria-hidden="true" />
+              Mes achats
             </button>
-          )}
-        </nav>
+          </nav>
+        )}
 
         {/* Espace de droite */}
         <div className="flex items-center gap-2">
@@ -135,6 +146,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
           ) : user ? (
             <>
               <NotificationsBell />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-10"
+                aria-label="Ouvrir les messages"
+                onClick={goMessages}
+              >
+                <MessageCircle className="size-5" aria-hidden="true" />
+              </Button>
               <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -178,6 +199,10 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={goHome} className="h-10 cursor-pointer">
+                  <Store className="size-4" aria-hidden="true" />
+                  Visiter le site public
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={goProfil} className="h-10 cursor-pointer">
                   <UserRound className="size-4" aria-hidden="true" />
                   Mon profil
@@ -224,7 +249,7 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
           >
-            <Menu className="size-5" aria-hidden="true" />
+            <MenuGridIcon />
           </Button>
         </div>
       </div>
@@ -232,30 +257,34 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
       {mobileOpen && (
         <div className="border-t bg-background md:hidden">
           <nav className="mx-auto max-w-6xl px-4 py-3" aria-label="Menu mobile">
-            <button
-              type="button"
-              className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
-              onClick={() => closeThen(goHome)}
-            >
-              <Store className="size-4" aria-hidden="true" />
-              Accueil
-            </button>
-            <button
-              type="button"
-              className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
-              onClick={() => closeThen(goToFeatures)}
-            >
-              <Sparkles className="size-4" aria-hidden="true" />
-              Fonctionnalités
-            </button>
-            <button
-              type="button"
-              className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
-              onClick={() => closeThen(goPurchases)}
-            >
-              <ShoppingBag className="size-4" aria-hidden="true" />
-              Mes achats
-            </button>
+            {!user && (
+              <>
+                <button
+                  type="button"
+                  className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                  onClick={() => closeThen(goHome)}
+                >
+                  <Store className="size-4" aria-hidden="true" />
+                  Accueil
+                </button>
+                <button
+                  type="button"
+                  className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                  onClick={() => closeThen(goToFeatures)}
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Fonctionnalités
+                </button>
+                <button
+                  type="button"
+                  className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                  onClick={() => closeThen(goPurchases)}
+                >
+                  <ShoppingBag className="size-4" aria-hidden="true" />
+                  Mes achats
+                </button>
+              </>
+            )}
             {user && (
               <button
                 type="button"

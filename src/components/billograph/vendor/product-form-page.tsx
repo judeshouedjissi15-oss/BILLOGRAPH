@@ -23,7 +23,7 @@ import {
   type UploadedProductFile,
 } from "../lib/large-file-upload";
 import { navigateTo } from "../lib/use-hash-route";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, formatXOF } from "@/lib/format";
 import {
   MAX_PRODUCT_FILES,
   PRODUCT_FILE_MAX_GB,
@@ -258,6 +258,8 @@ function ProductCreateForm({
   const [purchaseLabel, setPurchaseLabel] = useState<string>("Acheter maintenant");
   const [affiliateEnabled, setAffiliateEnabled] = useState(true);
   const [affiliatePercent, setAffiliatePercent] = useState("10");
+  const [affiliateInstructions, setAffiliateInstructions] = useState("");
+  const [affiliateTerms, setAffiliateTerms] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoDiscountPercent, setPromoDiscountPercent] = useState("10");
   const [promoStartsAt, setPromoStartsAt] = useState("");
@@ -389,6 +391,8 @@ function ProductCreateForm({
         purchaseLabel,
         affiliateEnabled,
         affiliatePercent: Number(affiliatePercent),
+        affiliateInstructions: affiliateInstructions.trim(),
+        affiliateTerms: affiliateTerms.trim(),
         promoCode: promoCode.trim().toUpperCase() || undefined,
         promoDiscountPercent: promoCode.trim() ? Number(promoDiscountPercent) : undefined,
         promoStartsAt: promoStartsAt ? new Date(promoStartsAt).toISOString() : undefined,
@@ -623,6 +627,35 @@ function ProductCreateForm({
                 <Switch id="product-affiliate-enabled" checked={affiliateEnabled} onCheckedChange={setAffiliateEnabled} />
               </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Gain affilié estimé : {formatXOF(Math.floor((Number(price) || 0) * (Number(affiliatePercent) || 0) / 100))} par vente confirmée, avant les éventuels frais configurés.
+            </p>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="product-affiliate-instructions">Instructions de promotion (facultatif)</Label>
+                <Textarea
+                  id="product-affiliate-instructions"
+                  maxLength={1200}
+                  rows={3}
+                  value={affiliateInstructions}
+                  onChange={(event) => setAffiliateInstructions(event.target.value)}
+                  disabled={!affiliateEnabled}
+                  placeholder="Arguments, public visé, informations à mettre en avant…"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="product-affiliate-terms">Conditions d&apos;affiliation (facultatif)</Label>
+                <Textarea
+                  id="product-affiliate-terms"
+                  maxLength={1200}
+                  rows={3}
+                  value={affiliateTerms}
+                  onChange={(event) => setAffiliateTerms(event.target.value)}
+                  disabled={!affiliateEnabled}
+                  placeholder="Règles particulières applicables aux promotions."
+                />
+              </div>
+            </div>
           </div>
 
           {type === "DIGITAL" && (
@@ -728,6 +761,8 @@ function ProductEditForm({
   const [purchaseLabel, setPurchaseLabel] = useState(product.purchaseLabel ?? "Acheter maintenant");
   const [affiliateEnabled, setAffiliateEnabled] = useState(product.affiliateEnabled ?? true);
   const [affiliatePercent, setAffiliatePercent] = useState(String(product.affiliatePercent ?? 10));
+  const [affiliateInstructions, setAffiliateInstructions] = useState(product.affiliateInstructions ?? "");
+  const [affiliateTerms, setAffiliateTerms] = useState(product.affiliateTerms ?? "");
   const [stock, setStock] = useState(product.stock === null ? "" : String(product.stock));
   const [status, setStatus] = useState<ProductStatus>(product.status);
   const [submitting, setSubmitting] = useState(false);
@@ -768,6 +803,8 @@ function ProductEditForm({
         purchaseLabel,
         affiliateEnabled,
         affiliatePercent: Number(affiliatePercent),
+        affiliateInstructions: affiliateInstructions.trim(),
+        affiliateTerms: affiliateTerms.trim(),
         status,
       };
       if (product.type === "PHYSICAL") body.stock = Number(stock || "0");
@@ -877,7 +914,6 @@ function ProductEditForm({
               />
             </div>
           </div>
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="edit-sale-price">Prix promotionnel (FCFA, facultatif)</Label>
@@ -911,6 +947,16 @@ function ProductEditForm({
             <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
               <Label htmlFor="edit-affiliate-enabled">Autoriser l&apos;affiliation</Label>
               <Switch id="edit-affiliate-enabled" checked={affiliateEnabled} onCheckedChange={setAffiliateEnabled} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-affiliate-instructions">Instructions de promotion</Label>
+              <Textarea id="edit-affiliate-instructions" maxLength={1200} rows={3} value={affiliateInstructions} onChange={(event) => setAffiliateInstructions(event.target.value)} disabled={!affiliateEnabled} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-affiliate-terms">Conditions d&apos;affiliation</Label>
+              <Textarea id="edit-affiliate-terms" maxLength={1200} rows={3} value={affiliateTerms} onChange={(event) => setAffiliateTerms(event.target.value)} disabled={!affiliateEnabled} />
             </div>
           </div>
 

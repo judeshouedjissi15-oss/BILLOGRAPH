@@ -74,10 +74,20 @@ Créer une boutique passe automatiquement l'utilisateur au rôle VENDEUR (côté
 Exception : un compte ADMIN conserve son rôle ADMIN et peut ouvrir son tableau de bord boutique depuis `#/dashboard`.
 
 ### POST /api/stores  🔒
-Body: `{ name, slug?, description?, color?, phone? }` → **201** `{ store }`.
+Body: `{ name, slug?, description?, color?, phone?, deliveryInfo?, returnPolicy?, trustMessage?, onboardingResponses? }` → **201** `{ store }`.
 - Si `slug` absent → généré depuis `name` (unicité garantie serveur via `uniqueSlug`).
 - 409 si slug déjà pris. Un utilisateur possède UNE seule boutique (409 sinon).
+- `onboardingResponses` conserve le questionnaire vendeur dans le profil privé et complète la boutique avec les champs publics validés (nom, description, couleur, téléphone et informations de confiance).
 - Audit: `STORE_CREATED`.
+
+### GET /api/vendor/onboarding  🔒
+→ 200 `{ currentStep, completed, responses, user: { name, email, phone, city } }`.
+Renvoie le brouillon de création de boutique de l'utilisateur connecté, sans exposer les réponses à d'autres comptes.
+
+### PUT /api/vendor/onboarding  🔒
+Body: `{ currentStep: 0..7, responses }` → 200 `{ saved, currentStep, updatedAt }`.
+Valide et sauvegarde les réponses du questionnaire par utilisateur. Limite de 30 écritures par minute et 40 Ko par requête.
+Le formulaire reprend automatiquement le brouillon; sa finalisation et la création de la boutique se font dans une transaction.
 
 ### PATCH /api/stores/:slug  🔒 (propriétaire uniquement → 403 sinon)
 Body partiel: `{ name?, description?, color?, phone? }` → 200 `{ store }`. Le slug est immuable.
@@ -143,7 +153,7 @@ Logique serveur :
 - Rate-limit: 10/min par IP. Audit: `ORDER_CREATED` (jamais de secret dans les metadata).
 
 ### GET /api/orders/:reference  🌐 public (statut restreint)
-→ 200 `{ order: { reference, status, totalXOF, paymentMethod, createdAt, paidAt, items: [{ titleSnapshot, quantity, unitPriceXOF }], customerEmail } }`
+→ 200 `{ order: { reference, status, totalXOF, paymentMethod, createdAt, paidAt, items: [{ titleSnapshot, quantity, unitPriceXOF }] } }`. Les données du client ne sont pas exposées.
 Utilisé par le polling du client après paiement.
 
 ### GET /api/orders/mine  🔒 vendeur ou admin propriétaire — query: `?status=&q=&limit=`
@@ -174,7 +184,9 @@ Utilisé par le checkout pour afficher l'état d'activation des paiements.
 Body: `{ reference }` → 200 `{ order: { reference, status } }`.
 Si la commande est PENDING : re-vérifie le statut réel de la transaction chez FedaPay
 (`GET /v1/transactions/{id}`) et confirme via confirmOrderPayment (approved → PAID,
-declined/canceled → FAILED, sinon reste PENDING). Idempotent. Statut terminal → réponse directe.
+declined/canceled → FAILED, sinon reste PENDING). Avant confirmation, l'identifiant de transaction
+doit correspondre au providerRef enregistré; le montant et la devise XOF sont également vérifiés.
+Idempotent. Statut terminal → réponse directe.
 
 ### POST /api/webhooks/payment  🌐 — **signature FedaPay obligatoire**
 Header: `X-FEDAPAY-SIGNATURE: t=<timestamp>,s=<hex>` — hex = HMAC-SHA256(`{t}.{body brut}`,
@@ -182,16 +194,18 @@ FEDAPAY_WEBHOOK_SECRET), comparaison à temps constant (repli : HMAC simple du c
 Flow : corps brut lu avant parsing → signature vérifiée (sinon **403** + PaymentEvent
 `signatureValid:false` + audit `WEBHOOK_REJECTED`) → extraction défensive de l'id de
 transaction (`entity.id ?? data.id ?? transaction.id ?? id`) → **re-vérification du statut
-via l'API FedaPay (jamais de confiance au payload)** → confirmOrderPayment (appel unique).
+via l'API FedaPay (jamais de confiance au payload)** → vérification de l'identifiant enregistré,
+du montant et de la devise → confirmOrderPayment (appel unique).
 → 200 `{ ok: true, order: { reference, status } }`.
 
 ---
 
 ## TÉLÉCHARGEMENTS (produits numériques)
 
-### GET /api/downloads/my?email=...  🌐 (récupération d'achats par email — MVP)
+### POST /api/downloads/my  🌐 (récupération d'une commande)
+Body: `{ email, reference }` — exige l'email utilisé au checkout et la référence exacte de commande.
 → 200 `{ orders: [{ reference, status, createdAt, items: [{ title, productId, download: { token, expiresAt, downloadCount, maxDownloads } | null }] }] }`
-Commandes PAYÉE/DELIVERED uniquement, produits DIGITAL uniquement. Si `email` absent/invalide → 422.
+Commandes PAYÉE/DELIVERED uniquement, produits DIGITAL uniquement. Réponses limitées par IP et par paire email/référence; les références ne sont pas énumérables à un rythme libre.
 
 ### GET /api/downloads?token=...  🌐
 Vérifie: token existe, non expiré, downloadCount < maxDownloads, commande PAYÉE/DELIVERED, produit a un fichier.
@@ -281,7 +295,16 @@ Après modération, le frontend invalide « public-reviews » → la page d'accu
 ## AFFILIATION & COMMISSIONS
 
 ### GET /api/affiliates/marketplace  🔒 utilisateur connecté
-→ `products` ouverts à l'affiliation et `links` propres à l'utilisateur. Une vente n'est comptée qu'après création de la commission suite au paiement confirmé.
+→ `products` ouverts à l'affiliation et `links` propres à l'utilisateur, avec détails de promotion, commissions, clics et visiteurs uniques par jour. Une vente n'est comptée qu'après création de la commission suite au paiement confirmé.
+
+### POST /api/affiliates/click  🌐 public — rate-limit 30/min/IP
+Body `{ productId, code }`. Vérifie que le lien vise un produit publié et ouvert à l'affiliation, puis enregistre le clic et un identifiant visiteur pseudonymisé (HMAC de l'IP et de l'agent utilisateur, renouvelé chaque jour); aucune IP brute n'est conservée.
+
+### GET /api/affiliates/vendor  🔒 vendeur/admin propriétaire
+→ `{ products, totals }` avec affiliés, clics, visiteurs uniques/jour, ventes et commissions par produit.
+
+### GET /api/admin/affiliate-commissions  🔒 admin
+→ 200 `{ commissions }`, limité aux 200 commissions les plus récentes pour la supervision financière.
 
 ### GET /api/affiliates/wallet  🔒 utilisateur connecté
 → `{ profile, summary: { generatedXOF, pendingXOF, availableXOF, paidXOF }, commissions, withdrawals }`.

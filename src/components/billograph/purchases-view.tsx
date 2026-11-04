@@ -1,7 +1,6 @@
 "use client";
 
-// MES ACHATS (#/mes-achats) : récupération des téléchargements par email.
-// GET /api/downloads/my?email=...
+// MES ACHATS (#/mes-achats) : récupération par email et référence de commande.
 
 import { useState } from "react";
 import { Download, Inbox, MailSearch } from "lucide-react";
@@ -11,13 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "./status-badge";
-import { apiFetch, apiUrl } from "./lib/api-client";
+import { apiFetch } from "./lib/api-client";
 import { formatDate } from "@/lib/format";
 import type { MyPurchases } from "@/types/api";
 import { cn } from "@/lib/utils";
 
 export function PurchasesView() {
   const [email, setEmail] = useState("");
+  const [reference, setReference] = useState("");
   const [searchedEmail, setSearchedEmail] = useState<string | null>(null);
   const [orders, setOrders] = useState<MyPurchases["orders"]>([]);
   const [loading, setLoading] = useState(false);
@@ -25,12 +25,15 @@ export function PurchasesView() {
 
   const handleSearch = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const trimmed = email.trim();
     setLoading(true);
     setError(null);
-    setSearchedEmail(trimmed);
+    setSearchedEmail(email.trim());
     try {
-      const data = await apiFetch<MyPurchases>(apiUrl("/api/downloads/my", { email: trimmed }));
+      const data = await apiFetch<MyPurchases>("/api/downloads/my", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, reference }),
+      });
       setOrders(data.orders);
     } catch (err) {
       setOrders([]);
@@ -48,15 +51,15 @@ export function PurchasesView() {
         </span>
         <h1 className="mt-5 text-3xl font-bold tracking-tight">Mes achats</h1>
         <p className="mx-auto mt-2 max-w-lg text-sm text-muted-foreground">
-          Saisissez l&apos;email utilisé lors de votre commande pour retrouver vos fichiers
-          numériques. Chaque lien est valable 30 jours et permet jusqu&apos;à 5 téléchargements par fichier.
+          Saisissez l&apos;email utilisé lors de votre commande et sa référence pour retrouver vos
+          fichiers numériques. Chaque lien est valable 30 jours et permet jusqu&apos;à 5 téléchargements par fichier.
         </p>
       </div>
 
       <Card className="mt-8">
         <CardHeader>
           <CardTitle className="text-base">Rechercher mes téléchargements</CardTitle>
-          <CardDescription>Aucun compte n&apos;est nécessaire.</CardDescription>
+          <CardDescription>Aucun compte n&apos;est nécessaire. La référence figure sur votre confirmation de commande.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSearch} className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -69,6 +72,17 @@ export function PurchasesView() {
                 placeholder="vous@exemple.bj"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="h-11"
+              />
+            </div>
+            <div className="flex-1 space-y-2">
+              <Label htmlFor="purchases-reference">Référence de commande</Label>
+              <Input
+                id="purchases-reference"
+                required
+                placeholder="BLG-ABC123"
+                value={reference}
+                onChange={(e) => setReference(e.target.value)}
                 className="h-11"
               />
             </div>

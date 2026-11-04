@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "../lib/api-client";
+import { rememberAffiliateReferral } from "../lib/affiliate-attribution";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
 import { getActiveProductPrice } from "@/lib/product-pricing";
@@ -59,13 +60,7 @@ export function ProductView({ slug }: { slug: string }) {
         if (!cancelled) {
           const query = window.location.hash.split("?")[1] ?? "";
           const referral = new URLSearchParams(query).get("ref");
-          if (referral) {
-            try {
-              window.sessionStorage.setItem(`blg:affiliate:${data.product.id}`, referral);
-            } catch {
-              // La visite reste possible si le stockage du navigateur est désactivé.
-            }
-          }
+          if (referral) rememberAffiliateReferral(data.product.id, referral);
           setState({ status: "ready", product: data.product, store: data.store });
           try {
             window.sessionStorage.setItem("blg:last-product", `#/produit/${slug}`);

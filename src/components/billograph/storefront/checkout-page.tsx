@@ -25,6 +25,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
+import { getAffiliateReferral, rememberAffiliateReferral } from "../lib/affiliate-attribution";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
 import { getActiveProductPrice } from "@/lib/product-pricing";
@@ -63,7 +64,12 @@ export function CheckoutPage({ slug }: { slug: string }) {
         const data = await apiFetch<{ product: PublicProductDetail; store: ProductStore }>(
           `/api/products/slug/${slug}`,
         );
-        if (!cancelled) setState({ status: "ready", product: data.product, store: data.store });
+        if (!cancelled) {
+          const query = window.location.hash.split("?")[1] ?? "";
+          const referral = new URLSearchParams(query).get("ref");
+          if (referral) rememberAffiliateReferral(data.product.id, referral);
+          setState({ status: "ready", product: data.product, store: data.store });
+        }
       } catch (error) {
         if (cancelled) return;
         const status = (error as { status?: number }).status;
@@ -303,7 +309,7 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
           promoCode: promoCode.trim() || undefined,
           affiliateCode: (() => {
             try {
-              return window.sessionStorage.getItem(`blg:affiliate:${product.id}`) || undefined;
+              return getAffiliateReferral(product.id) || undefined;
             } catch {
               return undefined;
             }
@@ -320,6 +326,11 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
 
       // Produit gratuit : la commande est déjà payée, téléchargements disponibles.
       if (data.checkout.flow === "free") {
+        try {
+          window.sessionStorage.setItem(`blg:checkout-email:${data.order.reference}`, email.trim());
+        } catch {
+          // La saisie restera disponible sur la page de commande.
+        }
         setSubmitting(false);
         toast({
           title: "Commande confirmée !",
@@ -331,6 +342,11 @@ function CheckoutForm({ product }: { product: PublicProductDetail }) {
 
       // Paiement réel : redirection vers la page de paiement hébergée FedaPay.
       if (data.checkout.flow === "redirect" && data.checkout.redirectUrl) {
+        try {
+          window.sessionStorage.setItem(`blg:checkout-email:${data.order.reference}`, email.trim());
+        } catch {
+          // La saisie restera disponible sur la page de commande.
+        }
         setPending({ reference: data.order.reference, totalXOF: data.order.totalXOF });
         setStep("redirecting");
         const redirectUrl = data.checkout.redirectUrl;

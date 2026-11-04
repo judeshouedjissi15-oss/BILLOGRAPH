@@ -6,6 +6,7 @@ import {
   PRODUCT_PURCHASE_LABELS,
   MIN_WITHDRAWAL_XOF,
 } from "@/lib/constants";
+import { sellerOnboardingResponsesSchema } from "@/lib/seller-onboarding";
 
 export const registerSchema = z.object({
   name: z.string().trim().min(2, "Le nom doit contenir au moins 2 caractères").max(80),
@@ -52,6 +53,7 @@ export const storeCreateSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}$/, "Couleur hexadécimale attendue (ex: #0B7A6B)")
     .optional(),
   phone: z.string().trim().max(30).optional(),
+  onboardingResponses: sellerOnboardingResponsesSchema.optional(),
 });
 
 export const productCreateSchema = z.object({
@@ -70,6 +72,8 @@ export const productCreateSchema = z.object({
   purchaseLabel: z.enum(PRODUCT_PURCHASE_LABELS).default("Acheter maintenant"),
   affiliateEnabled: z.boolean().default(true),
   affiliatePercent: z.number().int().min(1).max(50).default(10),
+  affiliateInstructions: z.string().trim().max(1200).optional(),
+  affiliateTerms: z.string().trim().max(1200).optional(),
   status: z.enum(["DRAFT", "PUBLISHED"]).default("DRAFT"),
   stock: z.number().int().min(0).max(1_000_000).optional(),
 });

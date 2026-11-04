@@ -39,24 +39,36 @@ function extractTransactionId(json: unknown): string | null {
 async function findReference(
   transactionId: string,
   json: unknown,
-): Promise<{ reference: string | null; paymentId: string | null }> {
+): Promise<{ reference: string | null; paymentId: string | null; amountXOF: number | null }> {
   const payment = await db.payment.findFirst({
     where: { provider: "FEDAPAY", providerRef: transactionId },
     include: { order: true },
   });
-  if (payment) return { reference: payment.order.reference, paymentId: payment.id };
+  if (payment) {
+    return {
+      reference: payment.order.reference,
+      paymentId: payment.id,
+      amountXOF: payment.order.totalXOF,
+    };
+  }
 
   // Fallback : référence figurant dans custom_data (JSON stringifié) ou
   // dans la description de la transaction.
   const haystack = safeStringify(json);
   const match = haystack.match(/BLG-[A-Z0-9]{6}/);
-  if (!match) return { reference: null, paymentId: null };
+  if (!match) return { reference: null, paymentId: null, amountXOF: null };
   const order = await db.order.findUnique({
     where: { reference: match[0] },
     include: { payment: true },
   });
-  if (!order) return { reference: null, paymentId: null };
-  return { reference: order.reference, paymentId: order.payment?.id ?? null };
+  if (!order || order.payment?.providerRef !== transactionId) {
+    return { reference: null, paymentId: null, amountXOF: null };
+  }
+  return {
+    reference: order.reference,
+    paymentId: order.payment.id,
+    amountXOF: order.totalXOF,
+  };
 }
 
 function safeStringify(value: unknown): string {
@@ -86,9 +98,9 @@ export async function POST(req: Request) {
 
     // Verrou 1 : signature obligatoire (secret configuré + HMAC valide).
     if (!config.webhookSecret || !verifyWebhookSignature(rawBody, header, config.webhookSecret)) {
-      const { reference, paymentId } = transactionId
-        ? await findReference(transactionId, json)
-        : { reference: null, paymentId: null };
+      const rejectedPayment = transactionId ? await findReference(transactionId, json) : null;
+      const reference = rejectedPayment?.reference ?? null;
+      const paymentId = rejectedPayment?.paymentId ?? null;
       if (paymentId) {
         await db.paymentEvent.create({
           data: {
@@ -133,7 +145,7 @@ export async function POST(req: Request) {
     }
 
     // Verrou 2 : la commande doit exister côté plateforme.
-    const { reference, paymentId } = await findReference(transactionId, json);
+    const { reference, paymentId, amountXOF } = await findReference(transactionId, json);
     if (!reference || !paymentId) throw new HttpError(404, "Paiement introuvable");
 
     // Trace de réception (payload brut tronqué — aucune donnée sensible).
@@ -155,6 +167,12 @@ export async function POST(req: Request) {
     // Toujours en attente chez FedaPay → aucune confirmation prématurée.
     if (verification.outcome === "PENDING") {
       return jsonOk({ ok: true, order: { reference, status: "PENDING" } });
+    }
+    if (
+      verification.outcome === "SUCCESS" &&
+      (verification.amountXOF !== amountXOF || verification.currencyIso !== "XOF")
+    ) {
+      throw new HttpError(409, "Le montant ou la devise FedaPay ne correspond pas à la commande.");
     }
 
     const { order: confirmed } = await confirmOrderPayment({

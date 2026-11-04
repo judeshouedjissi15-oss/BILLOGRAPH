@@ -43,6 +43,7 @@ model User {
   updatedAt                     DateTime                 @updatedAt
   sessions                      Session[]
   stores                        Store[]
+  sellerOnboarding              SellerOnboarding?
   auditLogs                     AuditLog[]
   adminChallenges               AdminChallenge[]
   reviews                       Review[]
@@ -136,6 +137,19 @@ model Store {
   withdrawals  Withdrawal[]
 
   @@index([ownerId])
+}
+
+model SellerOnboarding {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  responses   String    @default("{}")
+  currentStep Int       @default(0)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
 }
 
 // RETRAITS VENDEUR — demande de versement du solde disponible. Le paiement
@@ -276,6 +290,8 @@ model Product {
   purchaseLabel    String          @default("Acheter maintenant")
   affiliateEnabled Boolean         @default(true)
   affiliatePercent Int             @default(10)
+  affiliateInstructions String?
+  affiliateTerms         String?
   status           String          @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
   imageUrl         String?
   fileKey          String? // clé du fichier numérique dans le stockage privé (jamais exposée publiquement)
@@ -450,9 +466,24 @@ model AffiliateLink {
   product     Product               @relation(fields: [productId], references: [id], onDelete: Cascade)
   orders      Order[]
   commissions AffiliateCommission[]
+  clicks      AffiliateClick[]
 
   @@unique([userId, productId])
   @@index([productId])
+}
+
+model AffiliateClick {
+  id              String       @id @default(cuid())
+  affiliateLinkId String
+  visitorHash     String
+  dayKey          String
+  clickCount      Int          @default(1)
+  lastClickedAt   DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  affiliateLink   AffiliateLink @relation(fields: [affiliateLinkId], references: [id], onDelete: Cascade)
+
+  @@unique([affiliateLinkId, visitorHash, dayKey])
+  @@index([affiliateLinkId, dayKey])
 }
 
 model AffiliatePayoutProfile {
