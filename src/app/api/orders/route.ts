@@ -253,6 +253,12 @@ export async function POST(req: Request) {
           affiliateLinkId: affiliateLink?.id ?? null,
           promoCodeId: promo?.id ?? null,
           paymentMethod,
+          utmSource: body.attribution?.source ?? null,
+          utmMedium: body.attribution?.medium ?? null,
+          utmCampaign: body.attribution?.campaign ?? null,
+          utmContent: body.attribution?.content ?? null,
+          utmTerm: body.attribution?.term ?? null,
+          landingReferrer: body.attribution?.referrer ?? null,
         },
       });
       await tx.orderItem.create({

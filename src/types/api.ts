@@ -157,6 +157,12 @@ export type VendorStats = {
   series: { date: string; revenueXOF: number; ordersCount: number }[];
   topProducts: { title: string; units: number; revenueXOF: number }[];
   latestOrders: { reference: string; status: OrderStatus; totalXOF: number; createdAt: string; customerName: string }[];
+  acquisition: {
+    trackedOrdersCount: number;
+    untrackedOrdersCount: number;
+    sources: { source: string; ordersCount: number; revenueXOF: number }[];
+    campaigns: { campaign: string; source: string; ordersCount: number; revenueXOF: number }[];
+  };
 };
 
 export type MyPurchases = {

@@ -93,6 +93,14 @@ export const checkoutSchema = z.object({
     phone: z.string().trim().max(30).optional(),
   }),
   paymentMethod: z.string().trim().min(2).max(30).default("FEDAPAY"),
+  attribution: z.object({
+    source: z.string().trim().max(120).optional(),
+    medium: z.string().trim().max(120).optional(),
+    campaign: z.string().trim().max(180).optional(),
+    content: z.string().trim().max(180).optional(),
+    term: z.string().trim().max(180).optional(),
+    referrer: z.string().trim().max(500).optional(),
+  }).optional(),
 });
 
 // Le rôle ADMIN n'est jamais attribuable via cette API : le compte propriétaire
