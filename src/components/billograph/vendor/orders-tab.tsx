@@ -5,7 +5,7 @@
 // (client, articles, jetons de téléchargement, actions y sont gérés).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingBasket } from "lucide-react";
+import { Download, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,19 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">Téléchargez vos données pour les analyser ou les conserver.</p>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" className="h-10" onClick={() => window.location.assign("/api/vendor/export?type=orders")}>
+            <Download className="size-4" aria-hidden="true" />
+            Exporter les commandes
+          </Button>
+          <Button type="button" variant="outline" className="h-10" onClick={() => window.location.assign("/api/vendor/export?type=clients")}>
+            <Download className="size-4" aria-hidden="true" />
+            Exporter les clients
+          </Button>
+        </div>
+      </div>
       {/* Filtres */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1.5">

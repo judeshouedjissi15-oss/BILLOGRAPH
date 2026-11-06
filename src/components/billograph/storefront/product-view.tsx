@@ -19,6 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { apiFetch } from "../lib/api-client";
 import { rememberAffiliateReferral } from "../lib/affiliate-attribution";
+import { captureCampaignAttribution } from "../lib/campaign-attribution";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
 import { getActiveProductPrice } from "@/lib/product-pricing";
@@ -50,6 +51,7 @@ export function ProductView({ slug }: { slug: string }) {
   const [state, setState] = useState<ProductState>({ status: "loading" });
 
   useEffect(() => {
+    captureCampaignAttribution();
     let cancelled = false;
     const load = async () => {
       setState({ status: "loading" });

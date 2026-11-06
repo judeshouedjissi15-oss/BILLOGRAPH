@@ -174,6 +174,53 @@ export function OverviewTab({ storeSlug, onOpenOrders }: OverviewTabProps) {
         />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Origine des ventes</CardTitle>
+          <CardDescription>
+            Répartition des commandes payées selon leur source et leur campagne. Les liens directs sans UTM sont classés séparément.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {stats.acquisition.trackedOrdersCount} commande(s) attribuée(s) · {stats.acquisition.untrackedOrdersCount} sans source identifiée
+          </p>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Canaux</h3>
+              {stats.acquisition.sources.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune vente enregistrée.</p>
+              ) : stats.acquisition.sources.map((item) => (
+                <div key={item.source} className="flex items-center justify-between gap-3 border-b pb-2 text-sm">
+                  <span className="min-w-0 truncate">{item.source}</span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-medium">{formatXOF(item.revenueXOF)}</span>
+                    <span className="text-xs text-muted-foreground">{item.ordersCount} commande(s)</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">Campagnes</h3>
+              {stats.acquisition.campaigns.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Aucune campagne UTM n'a encore généré de vente.</p>
+              ) : stats.acquisition.campaigns.map((item) => (
+                <div key={item.source + "-" + item.campaign} className="flex items-center justify-between gap-3 border-b pb-2 text-sm">
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{item.campaign}</span>
+                    <span className="text-xs text-muted-foreground">{item.source}</span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-medium">{formatXOF(item.revenueXOF)}</span>
+                    <span className="text-xs text-muted-foreground">{item.ordersCount} commande(s)</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Graphique des ventes */}
       <Card>
         <CardHeader>
