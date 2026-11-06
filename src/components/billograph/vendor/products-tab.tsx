@@ -6,8 +6,10 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Archive,
+  Copy,
   Eye,
   EyeOff,
+  MessageCircle,
   Package,
   Pencil,
   Plus,
@@ -33,6 +35,7 @@ import { InlineConfirm } from "../inline-confirm";
 import { StatusBadge } from "../status-badge";
 import { formatXOF } from "@/lib/format";
 import type { VendorProduct } from "@/types/api";
+import { copyShareUrl, hashRouteUrl, openWhatsAppShare } from "../lib/sales-sharing";
 
 type ProductsTabProps = {
   storeSlug: string;
@@ -124,6 +127,27 @@ export function ProductsTab({ storeSlug }: ProductsTabProps) {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const directCheckoutUrl = (product: VendorProduct) =>
+    hashRouteUrl(`/commander/${encodeURIComponent(product.slug)}`);
+
+  const copyProductLink = async (product: VendorProduct) => {
+    try {
+      await copyShareUrl(directCheckoutUrl(product));
+      toast({ title: "Lien de commande copié" });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Copie impossible",
+        description: error instanceof Error ? error.message : "Copiez le lien depuis la page publique.",
+      });
+    }
+  };
+
+  const shareProductOnWhatsApp = (product: VendorProduct) => {
+    const url = directCheckoutUrl(product);
+    openWhatsAppShare(`Découvrez « ${product.title} » et commandez ici : ${url}`);
   };
 
   const iconButtonClass =
@@ -222,6 +246,28 @@ export function ProductsTab({ storeSlug }: ProductsTabProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={iconButtonClass}
+                            aria-label={`Copier le lien de commande de ${product.title}`}
+                            title="Copier le lien de commande"
+                            disabled={product.status !== "PUBLISHED"}
+                            onClick={() => void copyProductLink(product)}
+                          >
+                            <Copy className="size-4" aria-hidden="true" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className={iconButtonClass}
+                            aria-label={`Partager ${product.title} sur WhatsApp`}
+                            title="Partager sur WhatsApp"
+                            disabled={product.status !== "PUBLISHED"}
+                            onClick={() => shareProductOnWhatsApp(product)}
+                          >
+                            <MessageCircle className="size-4" aria-hidden="true" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"

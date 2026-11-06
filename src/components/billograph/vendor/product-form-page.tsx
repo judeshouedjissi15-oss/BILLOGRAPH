@@ -5,7 +5,7 @@
 // - #/dashboard/produit/{id}    → édition (PATCH JSON /api/products/:id, pas de re-upload en MVP)
 
 import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, FileWarning, Loader2, Package, Paperclip } from "lucide-react";
+import { ArrowLeft, FileWarning, Loader2, Package, Paperclip, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -267,6 +267,7 @@ function ProductCreateForm({
   const [promoMaxUses, setPromoMaxUses] = useState("");
   const [fileProgress, setFileProgress] = useState<{ name: string; percent: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [generatingCopy, setGeneratingCopy] = useState(false);
 
   // Aperçu de l'image de couverture + nettoyage de l'URL objet.
   useEffect(() => {
@@ -322,6 +323,49 @@ function ProductCreateForm({
       }
     }
     setImage(selected);
+  };
+
+  const generateSalesCopy = async () => {
+    if (title.trim().length < 3 || description.trim().length < 10) {
+      toast({
+        variant: "destructive",
+        title: "Informations insuffisantes",
+        description: "Ajoutez un titre et quelques caractéristiques vérifiables avant la génération.",
+      });
+      return;
+    }
+
+    setGeneratingCopy(true);
+    try {
+      const generated = await apiFetch<{ title: string; description: string }>(
+        "/api/vendor/ai/sales-page",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: title.trim(),
+            description: description.trim(),
+            type,
+            category,
+            ...(price.trim() ? { priceXOF: Number(price) } : {}),
+          }),
+        },
+      );
+      setTitle(generated.title);
+      setDescription(generated.description);
+      toast({
+        title: "Texte généré",
+        description: "Relisez et modifiez le contenu avant d’enregistrer ou publier le produit.",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Génération impossible",
+        description: error instanceof Error ? error.message : "Réessayez dans un instant.",
+      });
+    } finally {
+      setGeneratingCopy(false);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -464,7 +508,28 @@ function ProductCreateForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="product-description">Description et points forts</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label htmlFor="product-description">Description et points forts</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void generateSalesCopy()}
+                disabled={
+                  generatingCopy ||
+                  submitting ||
+                  title.trim().length < 3 ||
+                  description.trim().length < 10
+                }
+              >
+                {generatingCopy ? (
+                  <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <Sparkles className="size-4" aria-hidden="true" />
+                )}
+                {generatingCopy ? "Génération…" : "Améliorer avec l’IA"}
+              </Button>
+            </div>
             <Textarea
               id="product-description"
               rows={6}
@@ -474,7 +539,7 @@ function ProductCreateForm({
               onChange={(e) => setDescription(e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Une description claire aide le client à comprendre ce qu&apos;il achète. Elle sera affichée sur votre page produit.
+              Renseignez des faits vérifiables. Le texte généré reste modifiable et ne sera publié qu&apos;après votre validation.
             </p>
           </div>
 

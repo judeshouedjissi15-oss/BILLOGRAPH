@@ -4,7 +4,7 @@
 // grille des produits publiés. GET /api/stores/{slug}
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Package, Phone, Store as StoreIcon } from "lucide-react";
+import { ArrowRight, Copy, MessageCircle, Package, Phone, Store as StoreIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,8 @@ import { navigateTo } from "../lib/use-hash-route";
 import { formatXOF } from "@/lib/format";
 import { getActiveProductPrice } from "@/lib/product-pricing";
 import type { PublicProduct, Store } from "@/types/api";
+import { useToast } from "@/hooks/use-toast";
+import { copyShareUrl, hashRouteUrl, openWhatsAppShare } from "../lib/sales-sharing";
 
 type StoreState =
   | { status: "loading" }
@@ -73,7 +75,26 @@ function ProductCard({ product, color }: { product: PublicProduct; color: string
 }
 
 export function StoreView({ slug }: { slug: string }) {
+  const { toast } = useToast();
   const [state, setState] = useState<StoreState>({ status: "loading" });
+
+  const shareCatalogOnWhatsApp = (storeName: string, storeSlug: string) => {
+    const url = hashRouteUrl(`/boutique/${encodeURIComponent(storeSlug)}`);
+    openWhatsAppShare(`Découvrez la boutique « ${storeName} » et son catalogue : ${url}`);
+  };
+
+  const copyCatalogLink = async (storeSlug: string) => {
+    try {
+      await copyShareUrl(hashRouteUrl(`/boutique/${encodeURIComponent(storeSlug)}`));
+      toast({ title: "Lien du catalogue copié" });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Copie impossible",
+        description: error instanceof Error ? error.message : "Réessayez dans un instant.",
+      });
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +197,27 @@ export function StoreView({ slug }: { slug: string }) {
               Contacter la boutique · {store.phone}
             </a>
           ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => shareCatalogOnWhatsApp(store.name, store.slug)}
+            >
+              <MessageCircle className="size-4" aria-hidden="true" />
+              Partager sur WhatsApp
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="border-white/50 bg-transparent text-white hover:bg-white/15 hover:text-white"
+              onClick={() => void copyCatalogLink(store.slug)}
+            >
+              <Copy className="size-4" aria-hidden="true" />
+              Copier le lien du catalogue
+            </Button>
+          </div>
         </div>
       </header>
 

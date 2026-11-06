@@ -55,7 +55,10 @@ guide les utilisateurs sur BILLOGRAPH. Pour l'activer, configurez
 `OPENAI_MODEL`, qui vaut `gpt-4o-mini` par défaut). Ne préfixez jamais la clé par
 `NEXT_PUBLIC_` et ne l'exposez pas dans le navigateur. Sans clé, l'interface
 indique que le service n'est pas encore configuré. L'API limite les requêtes à
-12 messages par adresse IP toutes les 5 minutes.
+12 messages par adresse IP toutes les 5 minutes. Le même service permet aux
+vendeurs de proposer un brouillon de titre et de description pour un produit ;
+la génération est limitée à 10 appels par vendeur et par heure. Le vendeur doit
+relire et valider ce brouillon avant de l'enregistrer ou de publier le produit.
 
 ### Compte propriétaire (bootstrap)
 
