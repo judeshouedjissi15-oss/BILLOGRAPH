@@ -76,3 +76,12 @@ export function getCampaignAttribution(): CampaignAttribution {
     Object.entries({ ...saved, ...current }).filter(([, value]) => Boolean(value)),
   ) as CampaignAttribution;
 }
+
+export function clearCampaignAttribution(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Le parcours d'achat reste disponible si le stockage du navigateur est désactivé.
+  }
+}
