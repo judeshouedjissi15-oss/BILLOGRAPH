@@ -1,7 +1,7 @@
 "use client";
 
 // Onglet "Produits" du dashboard vendeur : liste, création, édition,
-// publication/dépublication, archivage, suppression.
+// publication/dépublication, partage, archivage et suppression.
 
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -30,6 +30,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { InlineConfirm } from "../inline-confirm";
+import { ShareMenu } from "../share-menu";
 import { StatusBadge } from "../status-badge";
 import { formatXOF } from "@/lib/format";
 import type { VendorProduct } from "@/types/api";
@@ -41,7 +42,6 @@ type ProductsTabProps = {
 function ProductThumb({ product }: { product: VendorProduct }) {
   if (product.imageUrl) {
     return (
-       
       <img
         src={product.imageUrl}
         alt={`Couverture du produit ${product.title}`}
@@ -222,6 +222,14 @@ export function ProductsTab({ storeSlug }: ProductsTabProps) {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
+                          {product.status === "PUBLISHED" && (
+                            <ShareMenu
+                              path={`#/produit/${encodeURIComponent(product.slug)}`}
+                              title={product.title}
+                              description={`Découvrez ${product.title} sur ma boutique BILLOGRAPH. Consultez les informations et commandez en ligne.`}
+                              iconOnly
+                            />
+                          )}
                           <Button
                             variant="ghost"
                             size="icon"
