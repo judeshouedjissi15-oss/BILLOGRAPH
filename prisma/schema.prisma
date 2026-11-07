@@ -340,6 +340,12 @@ model Order {
   affiliateLinkId        String?
   promoCodeId            String?
   paymentMethod          String               @default("FEDAPAY") // FEDAPAY | FREE
+  utmSource              String?
+  utmMedium              String?
+  utmCampaign            String?
+  utmContent             String?
+  utmTerm                String?
+  landingReferrer        String?
   createdAt              DateTime             @default(now())
   paidAt                 DateTime?
   updatedAt              DateTime             @updatedAt
@@ -353,6 +359,8 @@ model Order {
   affiliateCommission    AffiliateCommission?
 
   @@index([storeId])
+  @@index([storeId, utmSource])
+  @@index([storeId, utmCampaign])
   @@index([customerId])
   @@index([status])
 }

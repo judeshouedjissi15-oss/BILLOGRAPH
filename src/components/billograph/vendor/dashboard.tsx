@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   Users,
   Megaphone,
+  BarChart3,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +33,7 @@ import { AffiliateMarketplaceTab } from "./affiliate-marketplace-tab";
 import { AffiliateWalletTab } from "./affiliate-wallet-tab";
 import { AffiliateProgramTab } from "./affiliate-program-tab";
 import { MarketingStudioTab } from "./marketing-studio-tab";
+import { CampaignLinksTab } from "./campaign-links-tab";
 import { ShareMenu } from "../share-menu";
 import type { Store, User } from "@/types/api";
 import { WorkspaceSidebar, type WorkspaceNavItem } from "../workspace-sidebar";
@@ -39,6 +41,7 @@ import { WorkspaceSidebar, type WorkspaceNavItem } from "../workspace-sidebar";
 const VENDOR_NAV_ITEMS: WorkspaceNavItem[] = [
   { value: "overview", label: "Vue d'ensemble", icon: LayoutDashboard },
   { value: "marketing", label: "Studio marketing IA", icon: Megaphone },
+  { value: "campaigns", label: "Liens de campagne", icon: BarChart3 },
   { value: "products", label: "Mes produits", icon: Package },
   { value: "orders", label: "Commandes", icon: ShoppingCart },
   { value: "wallet", label: "Mes revenus", icon: Wallet },
@@ -182,6 +185,9 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
         <WorkspaceSidebar items={VENDOR_NAV_ITEMS} value={tab} onValueChange={setTab}>
           <TabsContent value="marketing" className="mt-0">
             <MarketingStudioTab />
+          </TabsContent>
+          <TabsContent value="campaigns" className="mt-0">
+            <CampaignLinksTab />
           </TabsContent>
           <TabsContent value="overview" className="mt-0">
             <OverviewTab storeSlug={store.slug} onOpenOrders={() => setTab("orders")} />

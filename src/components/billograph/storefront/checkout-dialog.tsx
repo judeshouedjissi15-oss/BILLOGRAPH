@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
+import { clearCampaignAttribution, getCampaignAttribution } from "../lib/campaign-attribution";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatXOF } from "@/lib/format";
 import { PAYMENT_METHODS } from "@/lib/constants";
@@ -126,8 +127,10 @@ function CheckoutContent({ product, onClose }: { product: PublicProductDetail; o
             phone: phone.trim() || undefined,
           },
           paymentMethod,
+          attribution: getCampaignAttribution(),
         }),
       });
+      clearCampaignAttribution();
 
       // Produit gratuit : la commande est déjà payée, téléchargements disponibles.
       if (data.checkout.flow === "free") {

@@ -28,6 +28,7 @@ function zeroStats(nowMs: number) {
     series: labels.map((date) => ({ date, revenueXOF: 0, ordersCount: 0 })),
     topProducts: [],
     latestOrders: [],
+    acquisition: { trackedOrdersCount: 0, untrackedOrdersCount: 0, sources: [], campaigns: [] },
   };
 }
 
@@ -91,6 +92,33 @@ export async function GET() {
       .sort((a, b) => b.revenueXOF - a.revenueXOF)
       .slice(0, 5);
 
+    // Attribution marketing des commandes payées : UTM source et campagne.
+    const bySource = new Map<string, { source: string; ordersCount: number; revenueXOF: number }>();
+    const byCampaign = new Map<string, { campaign: string; source: string; ordersCount: number; revenueXOF: number }>();
+    let trackedOrdersCount = 0;
+    for (const order of paidOrders) {
+      const source = order.utmSource?.trim() || "Direct / non attribué";
+      const sourceEntry = bySource.get(source) ?? { source, ordersCount: 0, revenueXOF: 0 };
+      sourceEntry.ordersCount += 1;
+      sourceEntry.revenueXOF += order.totalXOF;
+      bySource.set(source, sourceEntry);
+      if (order.utmSource?.trim()) trackedOrdersCount += 1;
+      const campaign = order.utmCampaign?.trim();
+      if (campaign) {
+        const key = source + "::" + campaign;
+        const campaignEntry = byCampaign.get(key) ?? { campaign, source, ordersCount: 0, revenueXOF: 0 };
+        campaignEntry.ordersCount += 1;
+        campaignEntry.revenueXOF += order.totalXOF;
+        byCampaign.set(key, campaignEntry);
+      }
+    }
+    const acquisition = {
+      trackedOrdersCount,
+      untrackedOrdersCount: paidOrders.length - trackedOrdersCount,
+      sources: [...bySource.values()].sort((a, b) => b.revenueXOF - a.revenueXOF).slice(0, 6),
+      campaigns: [...byCampaign.values()].sort((a, b) => b.revenueXOF - a.revenueXOF).slice(0, 6),
+    };
+
     // 8 dernières commandes — TOUS statuts (visibilité vendeur).
     const latest = await db.order.findMany({
       where: { storeId: store.id },
@@ -111,6 +139,7 @@ export async function GET() {
       period: { revenueXOF: periodRevenue, ordersCount: periodOrders.length, days: PERIOD_DAYS },
       series,
       topProducts,
+      acquisition,
       latestOrders: latest.map((o) => ({
         reference: o.reference,
         status: o.status,
