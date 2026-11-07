@@ -35,8 +35,8 @@ function whatsappHref(client: VendorClient, storeName: string): string {
       ? `Bonjour ${client.name}, merci pour votre confiance envers ${storeName}. Je reste à votre disposition pour vous conseiller et vous présenter les nouveautés de la boutique.`
       : `Bonjour ${client.name}, vous aviez commencé une commande auprès de ${storeName}. Avez-vous besoin d'aide pour finaliser votre achat ? Je reste à votre disposition.`;
   const phone = client.phone?.trim() ?? "";
-  const digits = phone.replace(/\\D/g, "");
-  const isInternational = /^\\s*(?:\\+|00)/.test(phone);
+  const digits = phone.replace(/\D/g, "");
+  const isInternational = /^\s*(?:\+|00)/.test(phone);
   const normalized = digits.startsWith("00") ? digits.slice(2) : digits;
   const recipient = isInternational && normalized.length >= 8 ? `/${normalized}` : "";
   return `https://wa.me${recipient}?text=${encodeURIComponent(message)}`;
