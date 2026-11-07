@@ -5,7 +5,7 @@
 // (client, articles, jetons de téléchargement, actions y sont gérés).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Download, ShoppingBasket } from "lucide-react";
+import { Download, MessageCircle, ShoppingBasket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,26 @@ import type { OrderStatus, VendorOrder } from "@/types/api";
 type OrdersTabProps = {
   storeSlug: string;
 };
+
+// Prépare un message WhatsApp sans l'envoyer. Un numéro international (+… ou 00…)
+// est ciblé directement ; sinon WhatsApp laisse le vendeur choisir le contact.
+function pendingOrderWhatsAppUrl(order: VendorOrder, storeSlug: string): string {
+  const phone = order.customer.phone?.trim() ?? "";
+  const digits = phone.replace(/\D/g, "");
+  const isInternational = /^\s*(?:\+|00)/.test(phone);
+  const recipient = isInternational
+    ? "/" + (digits.startsWith("00") ? digits.slice(2) : digits)
+    : "";
+  const storeUrl = window.location.origin + "/#/boutique/" + encodeURIComponent(storeSlug);
+  const message = [
+    "Bonjour " + order.customer.name + ",",
+    "Votre commande " + order.reference + " (" + formatXOF(order.totalXOF) + ") sur BILLOGRAPH est toujours en attente de confirmation du paiement.",
+    "Si vous avez déjà payé, ne repassez pas la commande : la confirmation doit se faire automatiquement.",
+    "Pour reprendre votre achat ou consulter la boutique : " + storeUrl,
+    "Je reste disponible pour vous aider.",
+  ].join("\n\n");
+  return "https://wa.me" + recipient + "?text=" + encodeURIComponent(message);
+}
 
 export function OrdersTab({ storeSlug }: OrdersTabProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -173,6 +193,7 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Commission</TableHead>
                     <TableHead>Statut</TableHead>
+                    <TableHead className="text-right">Relance</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -211,6 +232,26 @@ export function OrdersTab({ storeSlug }: OrdersTabProps) {
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={order.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {order.status === "PENDING" && order.customer.phone ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            aria-label={"Préparer une relance WhatsApp pour " + order.customer.name}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              window.open(pendingOrderWhatsAppUrl(order, storeSlug), "_blank", "noopener,noreferrer");
+                            }}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <MessageCircle className="size-4" aria-hidden="true" />
+                            WhatsApp
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
