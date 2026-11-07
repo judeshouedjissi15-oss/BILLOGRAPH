@@ -30,6 +30,7 @@ import { StoreSettingsTab } from "./store-settings-tab";
 import { AffiliateMarketplaceTab } from "./affiliate-marketplace-tab";
 import { AffiliateWalletTab } from "./affiliate-wallet-tab";
 import { AffiliateProgramTab } from "./affiliate-program-tab";
+import { ShareMenu } from "../share-menu";
 import type { Store, User } from "@/types/api";
 import { WorkspaceSidebar, type WorkspaceNavItem } from "../workspace-sidebar";
 
@@ -60,8 +61,7 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
   const [storeState, setStoreState] = useState<StoreState>({ status: "loading" });
   const [tab, setTab] = useState<string>(initialTab);
 
-  // Chargement initial : setState uniquement dans des callbacks async (jamais
-  // de façon synchrone dans le corps de l'effet), avec garde d'annulation.
+  // Chargement initial : setState uniquement après un await, avec garde d'annulation.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -162,41 +162,48 @@ export function VendorDashboard({ user, refreshUser, initialTab = "overview" }: 
             Bonjour {user.name.split(" ")[0]} — boutique « {store.name} » (#{store.slug})
           </p>
         </div>
-        <Button variant="outline" className="h-11" onClick={() => navigateTo(`#/boutique/${store.slug}`)}>
-          Voir ma boutique
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <ShareMenu
+            path={`#/boutique/${encodeURIComponent(store.slug)}`}
+            title={store.name}
+            description={`Découvrez la boutique ${store.name} sur BILLOGRAPH et consultez ses produits disponibles.`}
+            label="Partager la boutique"
+          />
+          <Button variant="outline" className="h-11" onClick={() => navigateTo(`#/boutique/${store.slug}`)}>
+            Voir ma boutique
+          </Button>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <WorkspaceSidebar items={VENDOR_NAV_ITEMS} value={tab} onValueChange={setTab}>
-
-        <TabsContent value="overview" className="mt-0">
-          <OverviewTab storeSlug={store.slug} onOpenOrders={() => setTab("orders")} />
-        </TabsContent>
-        <TabsContent value="products" className="mt-0">
-          <ProductsTab storeSlug={store.slug} />
-        </TabsContent>
-        <TabsContent value="orders" className="mt-0">
-          <OrdersTab storeSlug={store.slug} />
-        </TabsContent>
-        <TabsContent value="wallet" className="mt-0">
-          <WalletTab />
-        </TabsContent>
-        <TabsContent value="affiliate-program" className="mt-0">
-          <AffiliateProgramTab />
-        </TabsContent>
-        <TabsContent value="affiliates" className="mt-0">
-          <AffiliateMarketplaceTab />
-        </TabsContent>
-        <TabsContent value="affiliate-wallet" className="mt-0">
-          <AffiliateWalletTab />
-        </TabsContent>
-        <TabsContent value="settings" className="mt-0">
-          <StoreSettingsTab
-            store={store}
-            onSaved={(updated) => setStoreState({ status: "ready", store: updated })}
-          />
-        </TabsContent>
+          <TabsContent value="overview" className="mt-0">
+            <OverviewTab storeSlug={store.slug} onOpenOrders={() => setTab("orders")} />
+          </TabsContent>
+          <TabsContent value="products" className="mt-0">
+            <ProductsTab storeSlug={store.slug} />
+          </TabsContent>
+          <TabsContent value="orders" className="mt-0">
+            <OrdersTab storeSlug={store.slug} />
+          </TabsContent>
+          <TabsContent value="wallet" className="mt-0">
+            <WalletTab />
+          </TabsContent>
+          <TabsContent value="affiliate-program" className="mt-0">
+            <AffiliateProgramTab />
+          </TabsContent>
+          <TabsContent value="affiliates" className="mt-0">
+            <AffiliateMarketplaceTab />
+          </TabsContent>
+          <TabsContent value="affiliate-wallet" className="mt-0">
+            <AffiliateWalletTab />
+          </TabsContent>
+          <TabsContent value="settings" className="mt-0">
+            <StoreSettingsTab
+              store={store}
+              onSaved={(updated) => setStoreState({ status: "ready", store: updated })}
+            />
+          </TabsContent>
         </WorkspaceSidebar>
       </Tabs>
     </div>
