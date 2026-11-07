@@ -26,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "../lib/api-client";
 import { getAffiliateReferral, rememberAffiliateReferral } from "../lib/affiliate-attribution";
-import { clearCampaignAttribution, getCampaignAttribution } from "../lib/campaign-attribution";
+import { clearCampaignAttribution, getCampaignAttribution } from "@/lib/campaign-attribution";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatBytes, formatXOF } from "@/lib/format";
 import { getActiveProductPrice } from "@/lib/product-pricing";
