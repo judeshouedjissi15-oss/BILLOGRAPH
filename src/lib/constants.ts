@@ -79,6 +79,9 @@ export const PRODUCT_PURCHASE_LABELS = [
 ] as const;
 export const DOWNLOAD_MAX_COUNT = 5; // téléchargements max par jeton
 export const DOWNLOAD_TTL_DAYS = 30; // validité du lien de téléchargement
+
+export const BUYER_REFERRAL_PERCENT = 10;
+export const BUYER_REFERRAL_MAX_CREDIT_XOF = 1_000;
 export const SESSION_TTL_DAYS = 7;
 
 export const PRODUCT_MIN_PRICE = 0; // 0 = produit gratuit autorisé

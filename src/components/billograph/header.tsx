@@ -6,11 +6,13 @@
 import { useState } from "react";
 import {
   ChevronDown,
+  Gift,
   HandHeart,
   LayoutDashboard,
   Link2,
   LogOut,
   MessageCircle,
+  Search,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -79,6 +81,8 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const goHome = () => navigateTo("#/");
+  const goMarket = () => navigateTo("#/market");
+  const goLab = () => navigateTo("#/lab");
   const goAuth = () => navigateTo("#/auth");
   const goPurchases = () => navigateTo("#/mes-achats");
   const goDashboard = () => navigateTo("#/dashboard");
@@ -87,6 +91,7 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
   const goProfessionnel = () => navigateTo("#/professionnel");
   const goProfil = () => navigateTo("#/profil");
   const goAffiliates = () => navigateTo("#/affiliations");
+  const goReferrals = () => navigateTo("#/parrainage");
 
   const closeThen = (action: () => void) => {
     setMobileOpen(false);
@@ -122,6 +127,12 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
           <nav className="hidden items-center gap-1 md:flex" aria-label="Navigation principale">
             <button type="button" className={navLinkClass(route.name === "home")} onClick={goHome}>
               Accueil
+            </button>
+            <button type="button" className={navLinkClass(route.name === "market")} onClick={goMarket}>
+              Marché
+            </button>
+            <button type="button" className={navLinkClass(route.name === "lab")} onClick={goLab}>
+              Outils gratuits
             </button>
             <button type="button" className={navLinkClass(false)} onClick={goToFeatures}>
               Fonctionnalités
@@ -191,6 +202,10 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                   <Link2 className="size-4" aria-hidden="true" />
                   Marché d&apos;affiliation
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={goReferrals} className="h-10 cursor-pointer">
+                  <Gift className="size-4" aria-hidden="true" />
+                  Parrainage
+                </DropdownMenuItem>
                 {user.officeActive && (
                   <DropdownMenuItem onClick={goProfessionnel} className="h-10 cursor-pointer">
                     <HandHeart className="size-4" aria-hidden="true" />
@@ -199,6 +214,14 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={goMarket} className="h-10 cursor-pointer">
+                  <Search className="size-4" aria-hidden="true" />
+                  Découvrir le marché
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={goLab} className="h-10 cursor-pointer">
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Outils gratuits
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={goHome} className="h-10 cursor-pointer">
                   <Store className="size-4" aria-hidden="true" />
                   Visiter le site public
@@ -270,6 +293,22 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
                 <button
                   type="button"
                   className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                  onClick={() => closeThen(goMarket)}
+                >
+                  <Search className="size-4" aria-hidden="true" />
+                  Marché
+                </button>
+                <button
+                  type="button"
+                  className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                  onClick={() => closeThen(goLab)}
+                >
+                  <Sparkles className="size-4" aria-hidden="true" />
+                  Outils gratuits
+                </button>
+                <button
+                  type="button"
+                  className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
                   onClick={() => closeThen(goToFeatures)}
                 >
                   <Sparkles className="size-4" aria-hidden="true" />
@@ -289,6 +328,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
               <button
                 type="button"
                 className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                onClick={() => closeThen(goMarket)}
+              >
+                <Search className="size-4" aria-hidden="true" />
+                Découvrir le marché
+              </button>
+            )}
+            {user && (
+              <button
+                type="button"
+                className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
                 onClick={() => closeThen(goDashboard)}
               >
                 <LayoutDashboard className="size-4" aria-hidden="true" />
@@ -303,6 +352,16 @@ export function Header({ route, user, userLoading, onLogout }: HeaderProps) {
               >
                 <Link2 className="size-4" aria-hidden="true" />
                 Marché d&apos;affiliation
+              </button>
+            )}
+            {user && (
+              <button
+                type="button"
+                className="flex h-11 w-full items-center gap-2 rounded-md px-3 text-left text-sm font-medium hover:bg-accent"
+                onClick={() => closeThen(goReferrals)}
+              >
+                <Gift className="size-4" aria-hidden="true" />
+                Parrainage
               </button>
             )}
             {user && (

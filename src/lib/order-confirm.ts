@@ -31,6 +31,7 @@ import { logAudit } from "@/lib/audit";
 import { createNotification } from "@/lib/notifications";
 import { DOWNLOAD_MAX_COUNT, DOWNLOAD_TTL_DAYS } from "@/lib/constants";
 import { formatXOF } from "@/lib/format";
+import { BUYER_REFERRAL_MAX_CREDIT_XOF, BUYER_REFERRAL_PERCENT } from "@/lib/constants";
 
 export type PaymentOutcome = "SUCCESS" | "FAILED";
 
@@ -39,7 +40,12 @@ type TxClient = Prisma.TransactionClient;
 function loadOrder(client: TxClient, reference: string) {
   return client.order.findUnique({
     where: { reference },
-    include: { payment: true, items: { include: { product: { include: { files: true } } } } },
+    include: {
+      payment: true,
+      buyerReferralCode: { include: { user: { select: { email: true } } } },
+      customer: true,
+      items: { include: { product: { include: { files: true } } } },
+    },
   });
 }
 
@@ -100,6 +106,34 @@ export async function confirmOrderPayment(params: {
           availableAt: new Date(),
         },
       });
+      if (
+        order.totalXOF > 0 &&
+        order.buyerReferralCode &&
+        order.buyerReferralCode.user.email.toLowerCase() !== order.customer.email.toLowerCase()
+      ) {
+        await tx.$queryRaw`SELECT "id" FROM "Customer" WHERE "id" = ${order.customerId} FOR UPDATE`;
+        const priorPaidOrders = await tx.order.count({
+          where: {
+            customerId: order.customerId,
+            id: { not: order.id },
+            status: { in: ["PAID", "DELIVERED"] },
+          },
+        });
+        const amountXOF = Math.min(
+          Math.floor((order.totalXOF * BUYER_REFERRAL_PERCENT) / 100),
+          BUYER_REFERRAL_MAX_CREDIT_XOF,
+        );
+        if (priorPaidOrders === 0 && amountXOF > 0) {
+          await tx.referralCredit.create({
+            data: {
+              userId: order.buyerReferralCode.userId,
+              orderId: order.id,
+              customerId: order.customerId,
+              amountXOF,
+            },
+          });
+        }
+      }
 
       // Jetons de téléchargement : uniquement les articles numériques dont le
       // produit possède réellement un fichier dans le stockage privé.
@@ -126,8 +160,9 @@ export async function confirmOrderPayment(params: {
       });
       await tx.order.update({
         where: { id: order.id },
-        data: { status: "FAILED" },
+        data: { status: "FAILED", referralCreditUsedXOF: 0 },
       });
+      await tx.referralCreditRedemption.deleteMany({ where: { orderId: order.id } });
       await tx.affiliateCommission.updateMany({
         where: { orderId: order.id, status: "PENDING" },
         data: { status: "CANCELLED" },

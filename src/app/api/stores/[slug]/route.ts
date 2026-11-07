@@ -24,6 +24,7 @@ function storeView(store: Store) {
     returnPolicy: store.returnPolicy,
     trustMessage: store.trustMessage,
     status: store.status,
+    verifiedAt: store.verifiedAt,
     createdAt: store.createdAt,
   };
 }

@@ -29,10 +29,12 @@ import { EmailVerificationPage } from "@/components/billograph/email-verificatio
 import { MessagesView } from "@/components/billograph/messages-view";
 import { AccountActionPage } from "@/components/billograph/account-action-page";
 import { AffiliateMarketplaceTab } from "@/components/billograph/vendor/affiliate-marketplace-tab";
+import { MarketView } from "@/components/billograph/market-view";
+import { ReferralView } from "@/components/billograph/referral-view";
+import { LabView } from "@/components/billograph/lab-view";
 import { NotFoundView } from "@/components/billograph/not-found";
 import { LoginRequired, PageSkeleton } from "@/components/billograph/fallbacks";
 import { SiteDataProvider } from "@/components/billograph/lib/site-data";
-import { VirtualAssistant } from "@/components/billograph/virtual-assistant";
 
 export default function Home() {
   const route = useHashRoute();
@@ -49,6 +51,12 @@ export default function Home() {
     switch (route.name) {
       case "home":
         return <Landing user={user} />;
+      case "market":
+        return <MarketView />;
+      case "lab":
+        return <LabView />;
+      case "referrals":
+        return <ReferralView user={user} />;
       case "auth":
         return <AuthView user={user} userLoading={loading} refreshUser={refresh} />;
       case "dashboard":
@@ -136,7 +144,6 @@ export default function Home() {
           {renderView()}
         </main>
         <Footer />
-        <VirtualAssistant />
       </div>
     </SiteDataProvider>
   );

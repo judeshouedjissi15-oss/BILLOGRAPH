@@ -21,6 +21,7 @@ import { apiFetch } from "../lib/api-client";
 import { navigateTo } from "../lib/use-hash-route";
 import { formatXOF } from "@/lib/format";
 import { PAYMENT_METHODS } from "@/lib/constants";
+import { getBuyerReferral } from "../lib/buyer-referral-attribution";
 import type { CheckoutResponse, PaymentStatusInfo, PublicProductDetail } from "@/types/api";
 
 type CheckoutDialogProps = {
@@ -71,6 +72,18 @@ function CheckoutContent({ product, onClose }: { product: PublicProductDetail; o
   // commandable même sans configuration des paiements.
   const [paymentsStatus, setPaymentsStatus] = useState<PaymentStatusInfo | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [referralBalance, setReferralBalance] = useState(0);
+  const [useReferralCredits, setUseReferralCredits] = useState(false);
+
+  useEffect(() => {
+    apiFetch<{ available: boolean; balanceXOF: number }>("/api/referrals/balance")
+      .then((data) => {
+        if (data.available) setReferralBalance(data.balanceXOF);
+      })
+      .catch((error) => {
+        console.error("[checkout] impossible de charger le solde de parrainage:", error);
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,6 +139,8 @@ function CheckoutContent({ product, onClose }: { product: PublicProductDetail; o
             phone: phone.trim() || undefined,
           },
           paymentMethod,
+          buyerReferralCode: getBuyerReferral() ?? undefined,
+          useReferralCredits,
         }),
       });
 
@@ -184,6 +199,19 @@ function CheckoutContent({ product, onClose }: { product: PublicProductDetail; o
           </DialogHeader>
 
           <form onSubmit={handleOrder} className="space-y-4">
+            {referralBalance > 0 && total > 0 && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={useReferralCredits}
+                  onChange={(event) => setUseReferralCredits(event.target.checked)}
+                  className="mt-0.5 size-4 accent-primary"
+                />
+                <span>
+                  Utiliser mes crédits de parrainage (jusqu&apos;à {formatXOF(Math.min(referralBalance, total))})
+                </span>
+              </label>
+            )}
             <div className="space-y-2">
               <Label htmlFor="checkout-name">Votre nom complet *</Label>
               <Input

@@ -38,6 +38,7 @@ export type Store = {
   deliveryInfo?: string | null;
   returnPolicy?: string | null;
   trustMessage?: string | null;
+  verifiedAt?: string | null;
   status: string;
   createdAt: string;
 };
@@ -201,7 +202,7 @@ export type AuditEntry = {
 };
 
 export type AdminUser = User & { createdAt: string; storeSlug: string | null; supervisorName?: string | null; supervisorId?: string | null };
-export type AdminStore = Store & { ownerEmail: string; productsCount: number };
+export type AdminStore = Store & { ownerEmail: string; productsCount: number; verifiedAt?: string | null };
 
 // PRODUITS — version admin (GET /api/admin/products, tous statuts, toutes boutiques).
 export type AdminProduct = {

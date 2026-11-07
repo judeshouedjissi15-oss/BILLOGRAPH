@@ -51,18 +51,15 @@ téléchargement après paiement sont signés et temporaires ; aucun fichier de
 50 Go ne transite par la mémoire d'une route Next.js. Les images de couverture
 et avatars utilisent également le stockage privé configuré.
 
-### HOUEDJISSI IA (assistant virtuel OpenAI)
+### Génération IA des descriptions produit
 
-HOUEDJISSI IA, disponible sur toutes les pages, répond aux questions générales et
-guide les utilisateurs sur BILLOGRAPH. Pour l'activer, configurez
-`OPENAI_API_KEY` dans les variables d'environnement du serveur (et, si besoin,
-`OPENAI_MODEL`, qui vaut `gpt-4o-mini` par défaut). Ne préfixez jamais la clé par
-`NEXT_PUBLIC_` et ne l'exposez pas dans le navigateur. Sans clé, l'interface
-indique que le service n'est pas encore configuré. L'API limite les requêtes à
-12 messages par adresse IP toutes les 5 minutes. Le même service permet aux
-vendeurs de proposer un brouillon de titre et de description pour un produit ;
-la génération est limitée à 10 appels par vendeur et par heure. Le vendeur doit
-relire et valider ce brouillon avant de l'enregistrer ou de publier le produit.
+L'assistant général HOUEDJISSI IA a été retiré de l'interface et de son API.
+La génération facultative de brouillons de titre et de description reste
+disponible aux vendeurs dans le formulaire produit. Pour l'activer, configurez
+`OPENAI_API_KEY` côté serveur et, si besoin, `OPENAI_MODEL` (par défaut
+`gpt-4o-mini`). Ne préfixez jamais la clé par `NEXT_PUBLIC_`. La génération est
+limitée à 10 appels par vendeur et par heure ; le vendeur doit relire et valider
+le brouillon avant de l'enregistrer ou de publier le produit.
 
 ### Compte propriétaire (bootstrap)
 
@@ -243,6 +240,7 @@ Alternative DevOps : les variables d'environnement `FEDAPAY_SECRET_KEY`, `FEDAPA
 Au-delà d'une boutique SaaS basique, BILLOGRAPH peut devenir une plateforme d'acquisition qui attire directement des clients finaux sans dépendre uniquement de la publicité. L'idée n'est pas de copier les fonctionnalités déjà largement présentes chez les outils de commerce, mais de créer un cercle vertueux autour de la découverte, de la confiance et de la recommandation.
 
 ### 1) BILLOGRAPH MARKET : marketplace publique pour les acheteurs
+- Première version disponible sur `#/market` : catalogue public des produits publiés des boutiques actives, recherche textuelle, filtres par catégorie/type/prix, tri, pagination et comparaison de trois produits. L'achat réutilise la fiche produit et le checkout existants ; aucune donnée privée de fichier n'est publiée. Les tris/filtres prix portent sur le prix catalogue.
 - Un visiteur non connecté découvre des produits, prix, avis et vendeurs depuis une recherche publique.
 - Il peut acheter directement sur la plateforme sans devoir passer par une boutique séparée.
 - Le vendeur gagne en visibilité grâce au catalogue commun ; chaque produit ajoute du trafic pour les autres profils.
@@ -255,19 +253,17 @@ Au-delà d'une boutique SaaS basique, BILLOGRAPH peut devenir une plateforme d'a
 - C'est une source de trafic durable qui transforme des recherches utilitaires en prospects ou clients.
 
 ### 3) BILLOGRAPH REFERRAL : recommandations monétisées
-- Chaque achat donne accès à un lien personnel de partage.
-- Un client qui recommande un nouvel acheteur reçoit un crédit utilisable sur la plateforme.
-- Le système permet de transformer les clients satisfaits en ambassadeurs sans dépendre d'un seul canal marketing.
-- Il faut limiter les bénéficiaires, protéger contre les achats frauduleux et définir des règles de validation claires.
+- Espace `#/parrainage` avec lien partageable généré par compte et attribution conservée 30 jours.
+- Un nouvel acheteur peut générer un crédit de 10 % du premier paiement confirmé, plafonné à 1 000 XOF ; aucun crédit n'est accordé pour une commande gratuite ou impayée.
+- Les crédits peuvent être utilisés au checkout par un compte connecté. Le système interdit l'auto-parrainage, limite le gain à une attribution par client et libère la réservation des crédits si le paiement échoue ou la commande est annulée.
 
 ### 4) BILLOGRAPH WHATSAPP AI : assistant commercial pour les vendeurs
-- Les vendeurs peuvent exposer leur catalogue à un assistant WhatsApp qui répond en français.
-- L'acheteur peut demander un produit, comparer des offres, obtenir des détails, recevoir un aperçu et lancer le paiement.
-- C'est particulièrement pertinent dans les marchés où WhatsApp est le canal de conversion principal.
-- Les intégrations doivent utiliser les API WhatsApp officielles et respecter les autorisations des vendeurs.
+- **Non implémenté.** Il faut un compte Meta Business/WhatsApp Business Platform, un numéro approuvé, les identifiants serveur et la configuration du webhook vérifié avant de pouvoir tester l'intégration officielle.
 
 ### 5) BILLOGRAPH TRUST : système de confiance vérifiable
-- Vendeurs vérifiés, avis exclusifs aux personnes ayant réellement acheté, aperçus avant achat, score de fiabilité, historique de satisfaction.
+- L'administration peut marquer une boutique comme vérifiée ; le statut est visible dans le marché.
+- Une API permet de soumettre un avis lié à une commande payée et à son produit. La modération existante reste appliquée.
+- **À compléter :** parcours utilisateur de dépôt/consultation des avis, gestion des réclamations, aperçus sécurisés avant achat et indicateurs d'historique de satisfaction.
 - Une politique de remboursement clairement affichée limite la peur d'acheter et augmente la conversion.
 - La confiance devient un levier de croissance, pas seulement un élément de conformité.
 
@@ -278,7 +274,7 @@ Au-delà d'une boutique SaaS basique, BILLOGRAPH peut devenir une plateforme d'a
 - BILLOGRAPH WHATSAPP AI aide les vendeurs à convertir les conversations en ventes.
 - BILLOGRAPH TRUST renforce la conversion et la fidélisation.
 
-Cette architecture favorise une croissance organique et plus résistante qu'un simple modèle de boutique individuelle. Elle peut se déployer progressivement : d'abord le catalogue public, puis les outils d'acquisition, puis le referral, puis l'assistant WhatsApp et la couche de confiance.
+Cette architecture favorise une croissance organique et plus résistante qu'un simple modèle de boutique individuelle. MARKET, les outils LAB existants, le socle REFERRAL et une partie de TRUST sont disponibles. WhatsApp AI et les parcours TRUST restants nécessitent encore une implémentation avant d'être annoncés comme opérationnels.
 
 ---
 

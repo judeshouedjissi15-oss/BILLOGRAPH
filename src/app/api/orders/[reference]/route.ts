@@ -106,6 +106,11 @@ export async function PATCH(req: Request, ctx: RouteContext) {
         where: { orderId: order.id, status: "PENDING" },
         data: { status: "CANCELLED" },
       });
+      await tx.referralCreditRedemption.deleteMany({ where: { orderId: order.id } });
+      await tx.order.update({
+        where: { id: order.id },
+        data: { referralCreditUsedXOF: 0 },
+      });
       // Restock des produits physiques (le stock avait été décrémenté au checkout).
       for (const item of cancelled.items) {
         if (!item.productId || !item.product) continue;

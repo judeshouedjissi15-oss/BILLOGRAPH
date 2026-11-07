@@ -29,6 +29,7 @@ export async function GET() {
         color: s.color,
         phone: s.phone,
         status: s.status,
+        verifiedAt: s.verifiedAt,
         createdAt: s.createdAt,
         ownerEmail: s.owner.email,
         productsCount: s._count.products,

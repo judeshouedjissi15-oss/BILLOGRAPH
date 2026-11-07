@@ -94,8 +94,9 @@ export async function GET(_req: Request, ctx: RouteContext) {
 }
 
 const patchSchema = z.object({
-  status: z.enum(["ACTIVE", "SUSPENDED"]),
-});
+  status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
+  verified: z.boolean().optional(),
+}).refine((data) => data.status !== undefined || data.verified !== undefined);
 
 export async function PATCH(req: Request, ctx: RouteContext) {
   try {
@@ -108,19 +109,33 @@ export async function PATCH(req: Request, ctx: RouteContext) {
 
     const store = await db.store.update({
       where: { id },
-      data: { status: body.status },
+      data: {
+        status: body.status,
+        ...(body.verified !== undefined
+          ? {
+              verifiedAt: body.verified ? new Date() : null,
+              verifiedById: body.verified ? admin.id : null,
+            }
+          : {}),
+      },
     });
 
     await logAudit({
       actorUserId: admin.id,
-      action: "ADMIN_STORE_STATUS",
+      action: body.verified !== undefined ? "ADMIN_STORE_VERIFICATION" : "ADMIN_STORE_STATUS",
       entity: "Store",
       entityId: store.id,
-      metadata: { slug: store.slug, status: store.status },
+      metadata: { slug: store.slug, status: store.status, verified: Boolean(store.verifiedAt) },
     });
 
     return jsonOk({
-      store: { id: store.id, name: store.name, slug: store.slug, status: store.status },
+      store: {
+        id: store.id,
+        name: store.name,
+        slug: store.slug,
+        status: store.status,
+        verifiedAt: store.verifiedAt,
+      },
     });
   } catch (err) {
     return handleApiError(err);

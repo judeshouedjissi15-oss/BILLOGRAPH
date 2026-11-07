@@ -16,7 +16,7 @@
 // (nouveau token, l'ancien pouvant avoir expiré).
 import { db } from "@/lib/db";
 import { jsonOk, handleApiError, readJson } from "@/lib/api";
-import { HttpError } from "@/lib/auth";
+import { getSessionUser, HttpError } from "@/lib/auth";
 import { checkoutSchema } from "@/lib/validation";
 import { PAYMENT_METHODS } from "@/lib/constants";
 import { getActiveProductPrice } from "@/lib/product-pricing";
@@ -46,6 +46,10 @@ export async function POST(req: Request) {
     rateLimit(`orders:${clientIp(req)}`, 10, 60 * 1000);
 
     const body = checkoutSchema.parse(await readJson(req));
+    const buyerUser = body.useReferralCredits ? await getSessionUser() : null;
+    if (body.useReferralCredits && !buyerUser) {
+      throw new HttpError(401, "Connectez-vous pour utiliser vos crédits de parrainage.");
+    }
 
     const product = await db.product.findUnique({
       where: { slug: body.slug },
@@ -75,14 +79,29 @@ export async function POST(req: Request) {
     if (body.affiliateCode && (!affiliateLink || !product.affiliateEnabled)) {
       throw new HttpError(422, "Lien d'affiliation invalide ou indisponible");
     }
+    const buyerReferral = body.buyerReferralCode
+      ? await db.buyerReferralCode.findUnique({
+          where: { code: body.buyerReferralCode.toUpperCase() },
+          include: { user: { select: { email: true } } },
+        })
+      : null;
+    if (body.buyerReferralCode && !buyerReferral) {
+      throw new HttpError(422, "Code de parrainage invalide.");
+    }
+    if (buyerReferral?.user.email.toLowerCase() === body.customer.email.toLowerCase()) {
+      throw new HttpError(422, "Vous ne pouvez pas utiliser votre propre code de parrainage.");
+    }
 
     const since = new Date(Date.now() - IDEMPOTENCE_WINDOW_MS);
     const idempotenceFilter = {
+      status: "PENDING",
       createdAt: { gte: since },
       customer: { email: body.customer.email },
       items: { some: { productId: product.id } },
       promoCodeId: promo?.id ?? null,
       affiliateLinkId: affiliateLink?.id ?? null,
+      buyerReferralCodeId: buyerReferral?.id ?? null,
+      referralCreditUsedXOF: body.useReferralCredits ? { gt: 0 } : 0,
     };
     const recentMatching = await db.order.findFirst({
       where: idempotenceFilter,
@@ -108,7 +127,25 @@ export async function POST(req: Request) {
     const discountXOF = promoAvailable
       ? Math.round((subtotalXOF * promo.discountPercent) / 100)
       : recentMatching?.discountXOF ?? 0;
-    const totalXOF = recentMatching?.totalXOF ?? subtotalXOF - discountXOF;
+    const preCreditTotalXOF = recentMatching?.totalXOF ?? subtotalXOF - discountXOF;
+    const availableCredits = buyerUser
+      ? await db.$transaction(async (tx) => {
+          const [earned, redeemed] = await Promise.all([
+            tx.referralCredit.aggregate({ where: { userId: buyerUser.id }, _sum: { amountXOF: true } }),
+            tx.referralCreditRedemption.aggregate({ where: { userId: buyerUser.id }, _sum: { amountXOF: true } }),
+          ]);
+          return Math.max(
+            0,
+            (earned._sum.amountXOF ?? 0) - (redeemed._sum.amountXOF ?? 0),
+          );
+        })
+      : 0;
+    const referralCreditUsedXOF = recentMatching?.referralCreditUsedXOF ??
+      (body.useReferralCredits ? Math.min(availableCredits, preCreditTotalXOF) : 0);
+    if (body.useReferralCredits && referralCreditUsedXOF <= 0) {
+      throw new HttpError(422, "Aucun crédit de parrainage disponible pour cette commande.");
+    }
+    const totalXOF = recentMatching?.totalXOF ?? preCreditTotalXOF - referralCreditUsedXOF;
     const commissionXOF = Math.round((totalXOF * settings.commissionPercent) / 100);
     const affiliateCommissionXOF =
       affiliateLink && product.affiliateEnabled
@@ -128,6 +165,8 @@ export async function POST(req: Request) {
       items: { some: { productId: product.id } },
       promoCodeId: promo?.id ?? null,
       affiliateLinkId: affiliateLink?.id ?? null,
+      buyerReferralCodeId: buyerReferral?.id ?? null,
+      referralCreditUsedXOF,
     };
     // Produit gratuit : on récupère aussi la commande déjà confirmée (PAID)
     // du double-clic ; produit payant : uniquement les commandes en attente
@@ -228,6 +267,21 @@ export async function POST(req: Request) {
       });
       if (dup?.payment) return { reused: true as const, order: dup, payment: dup.payment };
 
+      if (referralCreditUsedXOF > 0 && buyerUser) {
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${buyerUser.id} FOR UPDATE`;
+        const [earned, redeemed] = await Promise.all([
+          tx.referralCredit.aggregate({ where: { userId: buyerUser.id }, _sum: { amountXOF: true } }),
+          tx.referralCreditRedemption.aggregate({ where: { userId: buyerUser.id }, _sum: { amountXOF: true } }),
+        ]);
+        const balanceXOF = Math.max(
+          0,
+          (earned._sum.amountXOF ?? 0) - (redeemed._sum.amountXOF ?? 0),
+        );
+        if (balanceXOF < referralCreditUsedXOF) {
+          throw new HttpError(409, "Votre solde de parrainage a changé. Réessayez la commande.");
+        }
+      }
+
       // Décrément de stock ATOMIQUE pour les produits physiques :
       // ne réussit que si le stock disponible est suffisant.
       if (product.type === "PHYSICAL") {
@@ -252,6 +306,8 @@ export async function POST(req: Request) {
           discountXOF,
           affiliateLinkId: affiliateLink?.id ?? null,
           promoCodeId: promo?.id ?? null,
+          buyerReferralCodeId: buyerReferral?.id ?? null,
+          referralCreditUsedXOF,
           paymentMethod,
         },
       });
@@ -272,6 +328,15 @@ export async function POST(req: Request) {
             affiliateUserId: affiliateLink.userId,
             amountXOF: affiliateCommissionXOF,
             ratePercent: product.affiliatePercent,
+          },
+        });
+      }
+      if (referralCreditUsedXOF > 0 && buyerUser) {
+        await tx.referralCreditRedemption.create({
+          data: {
+            userId: buyerUser.id,
+            orderId: order.id,
+            amountXOF: referralCreditUsedXOF,
           },
         });
       }

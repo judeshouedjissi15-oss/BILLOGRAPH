@@ -57,6 +57,10 @@ model User {
   affiliateCommissions          AffiliateCommission[]    @relation("AffiliateCommissionOwner")
   affiliatePayoutProfile        AffiliatePayoutProfile?
   affiliateWithdrawals          AffiliateWithdrawal[]    @relation("AffiliateWithdrawalOwner")
+  buyerReferralCode             BuyerReferralCode?
+  referralCredits               ReferralCredit[]         @relation("ReferralCreditOwner")
+  referralRedemptions           ReferralCreditRedemption[] @relation("ReferralCreditRedeemer")
+  verifiedStores                Store[]                   @relation("StoreVerifier")
   processedAffiliateWithdrawals AffiliateWithdrawal[]    @relation("AffiliateWithdrawalProcessor")
   deletionRequests              UserDeletionRequest[]    @relation("DeletionRequestUser")
   deletionRequestsReviewed      UserDeletionRequest[]    @relation("DeletionRequestReviewer")
@@ -129,9 +133,12 @@ model Store {
   color        String       @default("#0B7A6B") // couleur d'accent de la boutique
   phone        String?
   status       String       @default("ACTIVE") // ACTIVE | SUSPENDED
+  verifiedAt   DateTime?
+  verifiedById String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   owner        User         @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  verifiedBy   User?        @relation("StoreVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
   products     Product[]
   orders       Order[]
   withdrawals  Withdrawal[]
@@ -312,6 +319,7 @@ model Product {
   deletedByUser    User?           @relation("ProductDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
   affiliateLinks   AffiliateLink[]
   promoCodes       PromoCode[]
+  reviews          Review[]
 
   @@index([storeId])
   @@index([status])
@@ -324,6 +332,7 @@ model Customer {
   phone     String?
   createdAt DateTime @default(now())
   orders    Order[]
+  referralCredit ReferralCredit?
 }
 
 model Order {
@@ -338,6 +347,8 @@ model Order {
   affiliateRatePercent   Int                  @default(0)
   discountXOF            Int                  @default(0)
   affiliateLinkId        String?
+  referralCreditUsedXOF  Int                  @default(0)
+  buyerReferralCodeId    String?
   promoCodeId            String?
   paymentMethod          String               @default("FEDAPAY") // FEDAPAY | FREE
   createdAt              DateTime             @default(now())
@@ -351,6 +362,10 @@ model Order {
   affiliateLink          AffiliateLink?       @relation(fields: [affiliateLinkId], references: [id], onDelete: SetNull)
   promoCode              PromoCode?           @relation(fields: [promoCodeId], references: [id], onDelete: SetNull)
   affiliateCommission    AffiliateCommission?
+  buyerReferralCode      BuyerReferralCode?   @relation(fields: [buyerReferralCodeId], references: [id], onDelete: SetNull)
+  referralCreditRedemption ReferralCreditRedemption?
+  referralCredit         ReferralCredit?
+  verifiedReview         Review?
 
   @@index([storeId])
   @@index([customerId])
@@ -470,6 +485,43 @@ model AffiliateLink {
 
   @@unique([userId, productId])
   @@index([productId])
+}
+
+model BuyerReferralCode {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders    Order[]
+
+  @@index([code])
+}
+
+model ReferralCredit {
+  id         String   @id @default(cuid())
+  userId     String
+  orderId    String   @unique
+  customerId String   @unique
+  amountXOF  Int
+  createdAt  DateTime @default(now())
+  user       User     @relation("ReferralCreditOwner", fields: [userId], references: [id], onDelete: Cascade)
+  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model ReferralCreditRedemption {
+  id        String   @id @default(cuid())
+  userId    String
+  orderId   String   @unique
+  amountXOF Int
+  createdAt DateTime @default(now())
+  user      User     @relation("ReferralCreditRedeemer", fields: [userId], references: [id], onDelete: Restrict)
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model AffiliateClick {
@@ -670,12 +722,17 @@ model Review {
   moderatedAt   DateTime?
   deletedAt     DateTime? // corbeille d'administration (restaurable)
   deletedById   String?
+  productId     String?
+  verifiedOrderId String? @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
   deletedByUser User?     @relation("ReviewDeletedBy", fields: [deletedById], references: [id], onDelete: SetNull)
+  product       Product?  @relation(fields: [productId], references: [id], onDelete: SetNull)
+  verifiedOrder Order?    @relation(fields: [verifiedOrderId], references: [id], onDelete: SetNull)
 
   @@index([status])
+  @@index([productId, status])
 }
 
 // BARRE D'ANNONCE — message ponctuel affiché en haut du site, rédigé par

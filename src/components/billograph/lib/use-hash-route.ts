@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 
 export type HashRouteName =
   | "home"
+  | "market"
+  | "lab"
   | "auth"
   | "dashboard"
   | "boutique"
@@ -14,6 +16,7 @@ export type HashRouteName =
   | "commande"
   | "purchases"
   | "affiliates"
+  | "referrals"
   | "admin"
   | "professionnel"
   | "profil"
@@ -45,6 +48,10 @@ export function parseHash(rawHash: string): HashRoute {
   const param = segments.slice(1).join("/") || null;
 
   switch (head) {
+    case "market":
+      return { name: "market", param: null };
+    case "lab":
+      return { name: "lab", param: null };
     case "auth":
       return { name: "auth", param: null };
     case "dashboard": {
@@ -77,6 +84,8 @@ export function parseHash(rawHash: string): HashRoute {
       return { name: "purchases", param: null };
     case "affiliations":
       return { name: "affiliates", param: null };
+    case "parrainage":
+      return { name: "referrals", param: null };
     case "admin":
       return { name: "admin", param: null };
     case "professionnel":

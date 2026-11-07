@@ -86,6 +86,8 @@ export const checkoutSchema = z.object({
   slug: z.string().trim().min(1),
   promoCode: z.string().trim().max(40).optional(),
   affiliateCode: z.string().trim().max(64).optional(),
+  buyerReferralCode: z.string().trim().max(32).optional(),
+  useReferralCredits: z.boolean().default(false),
   quantity: z.number().int().min(1).max(20).default(1),
   customer: z.object({
     name: z.string().trim().min(2, "Nom requis").max(80),

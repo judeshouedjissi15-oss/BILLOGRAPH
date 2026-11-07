@@ -8,7 +8,7 @@
 // aucune donnée personnelle au-delà du nom/rôle/ville fournis volontairement.
 import { NextRequest } from "next/server";
 import { db } from "@/lib/db";
-import { getSessionUser } from "@/lib/auth";
+import { getSessionUser, HttpError } from "@/lib/auth";
 import { handleApiError, jsonOk, readJson } from "@/lib/api";
 import { reviewCreateSchema } from "@/lib/validation";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
@@ -21,18 +21,33 @@ const PUBLIC_SELECT = {
   authorCity: true,
   rating: true,
   content: true,
+  verifiedOrderId: true,
   createdAt: true,
 } as const;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const productSlug = request.nextUrl.searchParams.get("product");
+    const product = productSlug
+      ? await db.product.findUnique({ where: { slug: productSlug }, select: { id: true } })
+      : null;
+    if (productSlug && !product) throw new HttpError(404, "Produit introuvable.");
     const reviews = await db.review.findMany({
-      where: { status: "APPROVED", deletedAt: null },
+      where: {
+        status: "APPROVED",
+        deletedAt: null,
+        ...(productSlug ? { productId: product?.id } : {}),
+      },
       orderBy: [{ moderatedAt: "desc" }, { createdAt: "desc" }],
       take: 24,
       select: PUBLIC_SELECT,
     });
-    return jsonOk({ reviews });
+    return jsonOk({
+      reviews: reviews.map(({ verifiedOrderId, ...review }) => ({
+        ...review,
+        isVerifiedPurchase: Boolean(verifiedOrderId),
+      })),
+    });
   } catch (err) {
     return handleApiError(err);
   }

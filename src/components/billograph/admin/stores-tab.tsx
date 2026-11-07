@@ -84,6 +84,28 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
     }
   };
 
+  const patchVerification = async (store: AdminStore) => {
+    setBusyId(store.id);
+    try {
+      const verified = !store.verifiedAt;
+      const data = await apiFetch<{ store: AdminStore }>(`/api/admin/stores/${store.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verified }),
+      });
+      setStores((prev) => prev.map((item) => (item.id === store.id ? { ...item, ...data.store } : item)));
+      toast({ title: verified ? "Boutique vérifiée" : "Vérification retirée" });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Action impossible",
+        description: error instanceof Error ? error.message : "Réessayez dans un instant.",
+      });
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const openCreateForm = async () => {
     setCreateOpen(true);
     if (users.length) return;
@@ -217,6 +239,11 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
                         {store.name}
                       </button>
                       <p className="text-xs text-muted-foreground">/{store.slug}</p>
+                      {store.verifiedAt && (
+                        <Badge variant="outline" className="mt-1 border-emerald-500/40 text-emerald-700">
+                          Vendeur vérifié
+                        </Badge>
+                      )}
                     </TableCell>
                     <TableCell className="max-w-44 truncate text-sm">
                       {store.ownerEmail}
@@ -256,6 +283,19 @@ export function StoresTab({ readOnly = false }: { readOnly?: boolean } = {}) {
                           <Eye className="size-4" aria-hidden="true" />
                           Détails
                         </Button>
+                        {!readOnly && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9"
+                            disabled={busyId === store.id}
+                            aria-label={`${store.verifiedAt ? "Retirer la vérification de" : "Vérifier"} la boutique ${store.name}`}
+                            onClick={() => void patchVerification(store)}
+                          >
+                            <ShieldCheck className="size-4" aria-hidden="true" />
+                            {store.verifiedAt ? "Vérifiée" : "Vérifier"}
+                          </Button>
+                        )}
                         {store.status === "ACTIVE" ? (
                           <InlineConfirm
                             trigger={
