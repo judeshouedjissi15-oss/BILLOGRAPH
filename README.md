@@ -37,15 +37,19 @@ exécutez `bun run db:migrate:deploy`. Le build Vercel génère le client Prisma
 les migrations sont une étape séparée et ne doivent pas être exécutées avec
 `db:push --accept-data-loss` sur une base de production.
 
-Les fichiers numériques de produit utilisent **Cloudflare R2** (stockage privé)
-et des téléversements multipart directs depuis le navigateur, jusqu'à 50 Go par
-fichier et 20 fichiers par produit. Configurez `R2_ACCOUNT_ID`,
+En développement local, les fichiers peuvent être stockés sur le disque dans
+`storage/uploads` sans service externe : ce mode accepte un seul fichier
+numérique de 25 Mo maximum par produit et convient aux essais sur cet ordinateur.
+Il n'est pas adapté à Vercel ou à la production, où le disque local n'est pas
+persistent. Pour l'hébergement, les fichiers utilisent **Cloudflare R2** (stockage
+privé) et des téléversements multipart directs depuis le navigateur, jusqu'à
+50 Go par fichier et 20 fichiers par produit. Configurez `R2_ACCOUNT_ID`,
 `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` et `R2_BUCKET_NAME` en Production,
 Preview et local. Dans la configuration CORS du bucket, autorisez l'origine de
 l'application, la méthode `PUT` et exposez l'en-tête `ETag`. Les liens de
 téléchargement après paiement sont signés et temporaires ; aucun fichier de
 50 Go ne transite par la mémoire d'une route Next.js. Les images de couverture
-et avatars continuent d'utiliser le stockage Blob privé lorsqu'il est configuré.
+et avatars utilisent également le stockage privé configuré.
 
 ### HOUEDJISSI IA (assistant virtuel OpenAI)
 
@@ -231,6 +235,50 @@ Alternative DevOps : les variables d'environnement `FEDAPAY_SECRET_KEY`, `FEDAPA
 - Prestataires directs alternatifs possibles plus tard (MTN MoMo API, Moov, Flooz via agrégateurs) : l'interface `PaymentProvider` les accueille sans toucher au reste de l'application.
 
 À ne jamais faire (et que la plateforme empêche par construction) : marquer une commande PAYÉE côté client, stocker des données de carte, confirmer sans vérification serveur.
+
+---
+
+## 5.5. Moteur de croissance BILLOGRAPH (stratégie produit)
+
+Au-delà d'une boutique SaaS basique, BILLOGRAPH peut devenir une plateforme d'acquisition qui attire directement des clients finaux sans dépendre uniquement de la publicité. L'idée n'est pas de copier les fonctionnalités déjà largement présentes chez les outils de commerce, mais de créer un cercle vertueux autour de la découverte, de la confiance et de la recommandation.
+
+### 1) BILLOGRAPH MARKET : marketplace publique pour les acheteurs
+- Un visiteur non connecté découvre des produits, prix, avis et vendeurs depuis une recherche publique.
+- Il peut acheter directement sur la plateforme sans devoir passer par une boutique séparée.
+- Le vendeur gagne en visibilité grâce au catalogue commun ; chaque produit ajoute du trafic pour les autres profils.
+- C'est la composante la plus stratégique pour transformer BILLOGRAPH en plate-forme de découverte, pas uniquement de vente.
+
+### 2) BILLOGRAPH LAB : outils gratuits comme levier d'acquisition
+- Outils utiles et SEO-friendly (CV, devis, calculateur de marge, générateurs de texte, pages de vente, etc.).
+- Chaque outil attire des internautes via Google, sans compte requis.
+- Une fois qu'ils ont utilisé un outil, ils peuvent découvrir les boutiques, le catalogue et les offres BILLOGRAPH.
+- C'est une source de trafic durable qui transforme des recherches utilitaires en prospects ou clients.
+
+### 3) BILLOGRAPH REFERRAL : recommandations monétisées
+- Chaque achat donne accès à un lien personnel de partage.
+- Un client qui recommande un nouvel acheteur reçoit un crédit utilisable sur la plateforme.
+- Le système permet de transformer les clients satisfaits en ambassadeurs sans dépendre d'un seul canal marketing.
+- Il faut limiter les bénéficiaires, protéger contre les achats frauduleux et définir des règles de validation claires.
+
+### 4) BILLOGRAPH WHATSAPP AI : assistant commercial pour les vendeurs
+- Les vendeurs peuvent exposer leur catalogue à un assistant WhatsApp qui répond en français.
+- L'acheteur peut demander un produit, comparer des offres, obtenir des détails, recevoir un aperçu et lancer le paiement.
+- C'est particulièrement pertinent dans les marchés où WhatsApp est le canal de conversion principal.
+- Les intégrations doivent utiliser les API WhatsApp officielles et respecter les autorisations des vendeurs.
+
+### 5) BILLOGRAPH TRUST : système de confiance vérifiable
+- Vendeurs vérifiés, avis exclusifs aux personnes ayant réellement acheté, aperçus avant achat, score de fiabilité, historique de satisfaction.
+- Une politique de remboursement clairement affichée limite la peur d'acheter et augmente la conversion.
+- La confiance devient un levier de croissance, pas seulement un élément de conformité.
+
+### Synthèse : le moteur de croissance
+- BILLOGRAPH LAB attire les visiteurs.
+- BILLOGRAPH MARKET convertit ces visiteurs en acheteurs.
+- BILLOGRAPH REFERRAL transforme les acheteurs en ambassadeurs.
+- BILLOGRAPH WHATSAPP AI aide les vendeurs à convertir les conversations en ventes.
+- BILLOGRAPH TRUST renforce la conversion et la fidélisation.
+
+Cette architecture favorise une croissance organique et plus résistante qu'un simple modèle de boutique individuelle. Elle peut se déployer progressivement : d'abord le catalogue public, puis les outils d'acquisition, puis le referral, puis l'assistant WhatsApp et la couche de confiance.
 
 ---
 

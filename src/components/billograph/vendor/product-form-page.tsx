@@ -35,6 +35,7 @@ import type { ProductStatus, ProductType, Store, VendorProduct } from "@/types/a
 
 const DIGITAL_ACCEPT = ".pdf,.zip,.mp3,.mp4,.apk,.epub";
 const IMAGE_MAX_MB = 5;
+const LOCAL_PRODUCT_FILE_MAX_BYTES = 25 * 1024 * 1024;
 
 function priceError(priceValue: string): string | null {
   if (priceValue.trim() === "") return "Indiquez un prix (0 = gratuit).";
@@ -413,16 +414,11 @@ function ProductCreateForm({
     const uploadedKeys: string[] = [];
     const uploadedLargeFiles: UploadedProductFile[] = [];
     try {
-      for (const selectedFile of files) {
-        setFileProgress({ name: selectedFile.name, percent: 0 });
-        const uploadedFile = await uploadLargeProductFile(selectedFile, (percent) =>
-          setFileProgress({ name: selectedFile.name, percent }),
-        );
-        uploadedLargeFiles.push(uploadedFile);
-      }
-      const directImage = image ? await uploadPrivateBlob(image, "product-image") : null;
-      if (directImage) uploadedKeys.push(directImage.key);
-      const payload = {
+      const { r2Enabled, localEnabled } = await apiFetch<{
+        r2Enabled: boolean;
+        localEnabled: boolean;
+      }>("/api/uploads/multipart");
+      const productFields = {
         title: title.trim(),
         description: description.trim(),
         type,
@@ -444,22 +440,51 @@ function ProductCreateForm({
         promoMaxUses: promoMaxUses.trim() ? Number(promoMaxUses) : undefined,
         status: publishNow ? "PUBLISHED" : "DRAFT",
         ...(type === "PHYSICAL" ? { stock: Number(stock || "0") } : {}),
-        files: uploadedLargeFiles,
       };
-      if (image && !directImage) {
+
+      if (!r2Enabled) {
+        if (!localEnabled) {
+          throw new Error("Le stockage R2 doit être configuré pour téléverser des fichiers ici.");
+        }
+        if (files.length > 1) {
+          throw new Error("Sans R2, le mode local accepte un seul fichier numérique par produit.");
+        }
+        if (files.some((selectedFile) => selectedFile.size > LOCAL_PRODUCT_FILE_MAX_BYTES)) {
+          throw new Error("Sans R2, le fichier numérique ne peut pas dépasser 25 Mo.");
+        }
         const formData = new FormData();
-        Object.entries(payload).forEach(([key, value]) => {
-          if (key === "files") formData.set(key, JSON.stringify(value));
-          else if (value !== undefined && value !== null) formData.set(key, String(value));
+        Object.entries(productFields).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) formData.set(key, String(value));
         });
-        formData.set("image", image);
+        if (files[0]) formData.set("file", files[0]);
+        if (image) formData.set("image", image);
         await apiFetch("/api/products", { method: "POST", body: formData });
       } else {
-        await apiFetch("/api/products", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, image: directImage }),
-        });
+        for (const selectedFile of files) {
+          setFileProgress({ name: selectedFile.name, percent: 0 });
+          const uploadedFile = await uploadLargeProductFile(selectedFile, (percent) =>
+            setFileProgress({ name: selectedFile.name, percent }),
+          );
+          uploadedLargeFiles.push(uploadedFile);
+        }
+        const directImage = image ? await uploadPrivateBlob(image, "product-image") : null;
+        if (directImage) uploadedKeys.push(directImage.key);
+        const payload = { ...productFields, files: uploadedLargeFiles };
+        if (image && !directImage) {
+          const formData = new FormData();
+          Object.entries(payload).forEach(([key, value]) => {
+            if (key === "files") formData.set(key, JSON.stringify(value));
+            else if (value !== undefined && value !== null) formData.set(key, String(value));
+          });
+          formData.set("image", image);
+          await apiFetch("/api/products", { method: "POST", body: formData });
+        } else {
+          await apiFetch("/api/products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, image: directImage }),
+          });
+        }
       }
 
       toast({

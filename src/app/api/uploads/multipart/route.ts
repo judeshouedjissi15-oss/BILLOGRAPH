@@ -11,6 +11,7 @@ import {
   completeR2MultipartUpload,
   deleteR2Object,
   getR2ObjectSize,
+  isR2Configured,
   signR2UploadPart,
 } from "@/lib/r2";
 
@@ -18,6 +19,18 @@ export const MAX_PRODUCT_FILE_BYTES = 50 * 1024 * 1024 * 1024;
 export const PRODUCT_UPLOAD_PART_BYTES = 32 * 1024 * 1024;
 const MAX_SIGNED_PARTS_PER_REQUEST = 24;
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+export async function GET() {
+  try {
+    await requireUser();
+    return jsonOk({
+      r2Enabled: isR2Configured(),
+      localEnabled: process.env.NODE_ENV === "development" && process.env.VERCEL !== "1",
+    });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
 
 function safeFileName(value: unknown): string {
   if (typeof value !== "string") throw new HttpError(422, "Nom de fichier invalide");

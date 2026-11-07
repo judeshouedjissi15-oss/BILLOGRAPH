@@ -17,6 +17,15 @@ const R2_PART_URL_TTL_SECONDS = 60 * 60;
 
 let client: S3Client | null = null;
 
+export function isR2Configured(): boolean {
+  return Boolean(
+    process.env.R2_ACCOUNT_ID?.trim() &&
+      process.env.R2_ACCESS_KEY_ID?.trim() &&
+      process.env.R2_SECRET_ACCESS_KEY?.trim() &&
+      process.env.R2_BUCKET_NAME?.trim(),
+  );
+}
+
 function getBucket(): string {
   const bucket = process.env.R2_BUCKET_NAME?.trim();
   if (!bucket) throw new HttpError(503, "Le stockage de fichiers R2 n'est pas configuré");
@@ -28,7 +37,7 @@ function getClient(): S3Client {
   const accountId = process.env.R2_ACCOUNT_ID?.trim();
   const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
-  if (!accountId || !accessKeyId || !secretAccessKey) {
+  if (!accountId || !accessKeyId || !secretAccessKey || !isR2Configured()) {
     throw new HttpError(503, "Le stockage de fichiers R2 n'est pas configuré");
   }
   client = new S3Client({
